@@ -41,6 +41,7 @@ export default function EvaluationPage() {
                 <CardTitle>{meta.label}</CardTitle>
                 <CardDescription>
                   {meta.direction === "higher_is_better" ? "Higher is better" : "Lower is better"}
+                  {key === "cost_per_query" && " — generator (model inference) cost only"}
                 </CardDescription>
               </CardHeader>
               <CardContent>

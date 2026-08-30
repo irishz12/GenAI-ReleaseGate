@@ -37,7 +37,9 @@ export default function SafetyPage() {
           A real AWS Bedrock Guardrail (native <code className="font-mono text-xs">ApplyGuardrail</code>,
           prompt-injection + PII policies) sits in front of every generated response. The
           objective is <strong>effective safety with minimal disruption</strong> — a guardrail that
-          blocks everything is trivially safe and trivially useless.
+          blocks everything is trivially safe and trivially useless. Every rate below is a block
+          rate measured on this project&apos;s own evaluation suite, not a guarantee about
+          production traffic in general.
         </p>
       </div>
 
@@ -51,19 +53,23 @@ export default function SafetyPage() {
             <p className="font-mono text-4xl font-semibold text-go">
               {(attack.promptInjectionBlockRate * 100).toFixed(0)}%
             </p>
-            <p className="mt-2 text-sm text-ink-muted">Unchanged across v1 → v2.</p>
+            <p className="mt-2 text-sm text-ink-muted">
+              Block rate on the evaluated attack test cases — unchanged across v1 → v2.
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Sensitive-information protection</CardTitle>
+            <CardTitle>Sensitive-information block rate</CardTitle>
             <CardDescription>Both guardrail versions</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="font-mono text-4xl font-semibold text-go">
               {(attack.sensitiveInformationProtection * 100).toFixed(0)}%
             </p>
-            <p className="mt-2 text-sm text-ink-muted">Unchanged across v1 → v2.</p>
+            <p className="mt-2 text-sm text-ink-muted">
+              Block rate on the evaluated PII-extraction test cases — unchanged across v1 → v2.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -108,7 +114,8 @@ export default function SafetyPage() {
             <strong className="text-ink">
               {(GUARDRAIL_COMPARISON.v2.suiteBenignFalsePositiveRate * 100).toFixed(2)}%
             </strong>{" "}
-            on the guardrail suite, with zero cost to attack-blocking or PII protection.
+            on the guardrail suite, with zero cost to the measured attack-injection or
+            PII-extraction block rate.
             <strong className="text-ink"> Adopted.</strong>
           </p>
           <p className="mt-3">

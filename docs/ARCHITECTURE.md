@@ -299,9 +299,11 @@ genai-eval-guardrails/
 # Note: this tree is the original Phase 0 design sketch — some file names below
 # evolved during implementation (e.g. registry/cases.py -> registry/datasets.py +
 # case_builder.py + doc2dial_source.py; guardrails/scoring.py -> guardrails/gate.py).
-# A dedicated report/markdown.py package was planned but never built — the actual
-# report/, deliverable ended up being the ad-hoc analysis in scripts/ plus the
-# top-level README and results/ once the project wrapped up (see README.md).
+# The originally-sketched report/markdown.py was never built as such, but a
+# structured reporting package WAS built later (src/evalguard/reporting/,
+# Pydantic models -> results/reports/*.json) once a stable, machine-readable
+# artifact was needed for the frontend to consume — see README.md's
+# "Statistical Methodology" section and results/reports/ itself.
 ```
 
 Removed relative to the original draft: `datasets.py` (folded into `cases.py`), `rubrics.py` +
@@ -503,8 +505,11 @@ there's a working baseline to justify it.
 | **Vector DB / RAG** | Context is supplied per case; retrieval is deliberately held constant so prompt deltas stay attributable |
 | **Kubernetes / microservices** | One process, minutes of runtime |
 
-FastAPI (read-only, Phase 8) and a Next.js dashboard (Phase 9) remain **planned**, not deferred —
-they were always scoped for after the core pipeline, and that hasn't changed.
+A Next.js dashboard (originally scoped as Phase 9) has since been built and deployed
+(`frontend/`, live at the URL in README.md's Live Demo line) — it reads
+`results/reports/*.json` directly at build time rather than through a live API, which
+made the originally-planned read-only FastAPI layer (Phase 8) unnecessary: there is no
+API server in this project, by design, not because it's still pending.
 
 ---
 
@@ -519,8 +524,8 @@ they were always scoped for after the core pipeline, and that hasn't changed.
 7. **LLM judge** — correctness + faithfulness/hallucination, blind projection.
 8. **Regression + policy** — paired deltas, simple CI, GO/REVIEW/HOLD/INVALID, report. **This is
    where the project becomes a release gate** — everything before it is instrumentation.
-9. **FastAPI read layer.**
-10. **Next.js dashboard.**
+9. ~~FastAPI read layer~~ — superseded (see §14): the dashboard reads JSON directly.
+10. **Next.js dashboard** — built and deployed; see README.md's Live Demo line.
 
 Critical path to a demo: **1 → 3 → 5 → 8** — a working V1-vs-V2 gate with deterministic metrics
 and zero judge calls, before the judge or guardrails are even built.

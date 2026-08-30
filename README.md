@@ -89,13 +89,20 @@ override, no threshold changed to produce this result.**
 | Instruction following | 60.00% → 66.67% | 60.00% → 60.00% |
 | Abstention accuracy | 6.67% → 93.33% | 0.00% → 100.00% |
 | Prompt injection block rate | 100% → 100% | 100% → 100% |
-| Sensitive-info protection | 100% → 100% | 100% → 100% |
-| Cost per query | +12.17% | +10.81% |
+| Sensitive-info block rate | 100% → 100% | 100% → 100% |
+| Cost per query (generator inference only) | +12.17% | +10.81% |
 | p95 latency | −30.6% | −16.0% |
 
 All 8 real, persisted comparisons (V2 through V3.4, dev and holdout) are in
 [`results/reports/`](results/reports/) as structured JSON — nothing summarized here is
 hand-typed independently of that data.
+
+**What "cost per query" measures:** `cost_per_query` — the metric the release gate
+reads — is the generator's (model inference) cost only. Judge and guardrail calls are
+real, separately billed services with their own cost, tracked independently in the
+database and printed separately by the evaluation scripts (`generator=... guardrail=...
+judge=...`); they are not included in the `cost_per_query` gate. Nothing on this site
+calls it "total system cost."
 
 ## Dev vs Sealed Holdout
 
@@ -120,7 +127,9 @@ The identical prompt was evaluated again on a sealed holdout split, using the sa
 unmodified release policy — this is the exact discipline that caught V3's real
 regression earlier in this project's history (correctness delta −7.53pp, CI
 [−17.7, −1.2] — see [Failure Analysis](#failure-analysis)) and is what makes V3.4's GO
-a stronger claim than a single dev-set win.
+a stronger claim than a single dev-set win. Precisely: **V3.4 passed the same release
+policy on unseen holdout data** — not a claim that this "proves" the improvement will
+generalize to production traffic in general.
 
 **Statistical honesty:** V3.4's quality improvements were directionally consistent
 across Dev and Holdout. The release decision itself replicated: GO on both datasets.
@@ -158,13 +167,19 @@ exactly as before these additions existed.
 ## AWS Bedrock Guardrails
 
 A real Amazon Bedrock Guardrail (native `ApplyGuardrail`, prompt-injection + PII
-policies) checks every input and output. Guardrail v1 (`PROMPT_ATTACK=HIGH`) caught
-every real attack but over-blocked benign traffic badly — 55.56% of its own test suite.
-Guardrail v2 (`PROMPT_ATTACK=MEDIUM`, PII policy untouched) preserved a perfect 100%
-attack-blocking / 100% PII-protection rate while cutting benign false positives to
-11.11% — a 5x reduction at zero cost to safety. Adopted, and used for every comparison
-from V3 onward. (V2's HOLD includes a 55.56% benign-FP reading from Guardrail v1 — V2
-was never re-tested under v2.)
+policies) checks every input and output. Guardrail v1 (`PROMPT_ATTACK=HIGH`) achieved a
+100% block rate on every real attack case in the evaluated suite but over-blocked
+benign traffic badly — 55.56% of its own test suite. Guardrail v2 (`PROMPT_ATTACK=MEDIUM`,
+PII policy untouched) preserved that same 100% block rate on the evaluated
+prompt-injection and PII-extraction cases while cutting benign false positives to
+11.11% — a 5x reduction at zero cost to the measured block rate. Adopted, and used for
+every comparison from V3 onward. (V2's HOLD includes a 55.56% benign-FP reading from
+Guardrail v1 — V2 was never re-tested under v2.)
+
+These are block rates measured on this project's own evaluation suite (30 guardrail
+cases on dev, 10 on holdout — prompt-injection, PII-extraction, and benign near-miss
+cases combined), not a guarantee about production traffic in general — see
+[Limitations](#limitations).
 
 ## Architecture
 

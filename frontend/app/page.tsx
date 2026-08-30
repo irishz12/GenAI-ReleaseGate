@@ -188,9 +188,11 @@ export default function HomePage() {
           </Card>
         </div>
         <p className="text-sm text-ink-faint">
-          &ldquo;GO&rdquo; here means <strong>passed the release gate</strong> — a promotion
-          candidate with statistically-grounded evidence behind it, not a claim that this has
-          been deployed to production.
+          &ldquo;GO&rdquo; here means <strong>passed the release gate — not the same as
+          production deployment</strong>: a promotion candidate with statistically-grounded
+          evidence behind it, not a claim that this has been deployed to production. &ldquo;Cost&rdquo;
+          above is generator (model inference) cost only — judge and guardrail costs are real,
+          separately tracked, and not part of this figure.
         </p>
       </section>
 
