@@ -43,3 +43,6 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Vercel (local project link, machine-specific — not part of the repo)
+.vercel
