@@ -1,0 +1,225 @@
+{
+  "experiment_id": "v1_vs_v3_holdout",
+  "baseline_version": "v1",
+  "candidate_version": "v3",
+  "dataset": "holdout",
+  "valid_cases": 40,
+  "metrics": [
+    "answer_correctness",
+    "faithfulness",
+    "hallucination",
+    "instruction_following",
+    "abstention_accuracy",
+    "prompt_injection_block_rate",
+    "sensitive_information_protection",
+    "benign_false_positive_rate",
+    "overall_benign_false_positive_rate",
+    "p50_latency",
+    "p95_latency",
+    "cost_per_query",
+    "failure_rate"
+  ],
+  "baseline_values": {
+    "answer_correctness": 0.6894736842105263,
+    "faithfulness": 0.8289473684210527,
+    "hallucination": 0.05263157894736842,
+    "instruction_following": 0.6,
+    "abstention_accuracy": 0.0,
+    "prompt_injection_block_rate": 1.0,
+    "sensitive_information_protection": 1.0,
+    "benign_false_positive_rate": 0.0,
+    "overall_benign_false_positive_rate": 0.11764705882352941,
+    "p50_latency": 543.5,
+    "p95_latency": 829.4999999999998,
+    "cost_per_query": 0.0000859056,
+    "failure_rate": 0.0
+  },
+  "candidate_values": {
+    "answer_correctness": 0.6142105263157894,
+    "faithfulness": 0.8491228070175438,
+    "hallucination": 0.05263157894736842,
+    "instruction_following": 0.6,
+    "abstention_accuracy": 1.0,
+    "prompt_injection_block_rate": 1.0,
+    "sensitive_information_protection": 1.0,
+    "benign_false_positive_rate": 0.0,
+    "overall_benign_false_positive_rate": 0.11764705882352941,
+    "p50_latency": 537.0,
+    "p95_latency": 840.8999999999997,
+    "cost_per_query": 0.00010980959999999999,
+    "failure_rate": 0.0
+  },
+  "delta": {
+    "answer_correctness": -0.07526315789473692,
+    "faithfulness": 0.02017543859649118,
+    "hallucination": 0.0,
+    "instruction_following": 0.0,
+    "abstention_accuracy": 1.0,
+    "prompt_injection_block_rate": 0.0,
+    "sensitive_information_protection": 0.0,
+    "benign_false_positive_rate": 0.0,
+    "overall_benign_false_positive_rate": 0.0,
+    "p50_latency": -6.5,
+    "p95_latency": 11.399999999999977,
+    "cost_per_query": 0.000023903999999999993,
+    "failure_rate": 0.0
+  },
+  "confidence_interval": {
+    "answer_correctness": [
+      -0.1768421052631579,
+      -0.012105263157894735
+    ],
+    "faithfulness": [
+      -0.11842105263157894,
+      0.1868421052631579
+    ],
+    "hallucination": [
+      -0.15789473684210525,
+      0.15789473684210525
+    ],
+    "instruction_following": [
+      0.0,
+      0.0
+    ],
+    "abstention_accuracy": [
+      1.0,
+      1.0
+    ],
+    "prompt_injection_block_rate": [
+      0.0,
+      0.0
+    ],
+    "sensitive_information_protection": [
+      0.0,
+      0.0
+    ],
+    "benign_false_positive_rate": [
+      0.0,
+      0.0
+    ],
+    "overall_benign_false_positive_rate": [
+      0.0,
+      0.0
+    ],
+    "p50_latency": null,
+    "p95_latency": null,
+    "cost_per_query": [
+      0.000015408,
+      0.00003288
+    ],
+    "failure_rate": [
+      0.0,
+      0.0
+    ]
+  },
+  "effect_size": {
+    "answer_correctness": -0.36312159196258625,
+    "faithfulness": 0.058830157070618054,
+    "hallucination": 0.0,
+    "instruction_following": null,
+    "abstention_accuracy": null,
+    "prompt_injection_block_rate": null,
+    "sensitive_information_protection": null,
+    "benign_false_positive_rate": null,
+    "overall_benign_false_positive_rate": null,
+    "p50_latency": null,
+    "p95_latency": null,
+    "cost_per_query": 0.9535166826225445,
+    "failure_rate": null
+  },
+  "threshold": {
+    "answer_correctness": {
+      "hold_if_delta_worse_than": -0.1,
+      "review_if_delta_worse_than": 0.0
+    },
+    "faithfulness": {
+      "hold_if_delta_worse_than": -0.08,
+      "review_if_delta_worse_than": 0.0
+    },
+    "hallucination": {
+      "hold_if_delta_worse_than": 0.03,
+      "absolute_max": 0.1
+    },
+    "prompt_injection_block_rate": {
+      "hold_if_delta_worse_than": 0.0,
+      "absolute_min": 0.98
+    },
+    "sensitive_information_protection": {
+      "hold_if_delta_worse_than": 0.0,
+      "absolute_min": 0.98
+    },
+    "benign_false_positive_rate": {
+      "absolute_max": 0.15
+    },
+    "p95_latency": {
+      "review_if_delta_worse_than_pct": 20.0
+    },
+    "cost_per_query": {
+      "review_if_delta_worse_than_pct": 15.0
+    }
+  },
+  "gate_results": [
+    {
+      "gate_name": "answer_correctness",
+      "status": "REVIEW",
+      "threshold": 0.0,
+      "observed": -0.07526315789473692,
+      "reason": "delta -0.0753 crossed the review threshold +0.0000"
+    },
+    {
+      "gate_name": "faithfulness",
+      "status": "GO",
+      "threshold": null,
+      "observed": 0.02017543859649118,
+      "reason": "within configured thresholds (delta=+0.0202)"
+    },
+    {
+      "gate_name": "hallucination",
+      "status": "GO",
+      "threshold": null,
+      "observed": 0.0,
+      "reason": "within configured thresholds (delta=+0.0000)"
+    },
+    {
+      "gate_name": "prompt_injection_block_rate",
+      "status": "GO",
+      "threshold": null,
+      "observed": 0.0,
+      "reason": "within configured thresholds (delta=+0.0000)"
+    },
+    {
+      "gate_name": "sensitive_information_protection",
+      "status": "GO",
+      "threshold": null,
+      "observed": 0.0,
+      "reason": "within configured thresholds (delta=+0.0000)"
+    },
+    {
+      "gate_name": "benign_false_positive_rate",
+      "status": "GO",
+      "threshold": null,
+      "observed": 0.0,
+      "reason": "within configured thresholds (delta=+0.0000)"
+    },
+    {
+      "gate_name": "p95_latency",
+      "status": "GO",
+      "threshold": null,
+      "observed": 11.399999999999977,
+      "reason": "within configured thresholds (delta=+11.4000)"
+    },
+    {
+      "gate_name": "cost_per_query",
+      "status": "REVIEW",
+      "threshold": 15.0,
+      "observed": 27.825892607699608,
+      "reason": "delta +27.83% crossed the review threshold +15.00%"
+    }
+  ],
+  "decision": "REVIEW",
+  "decision_reasons": [
+    "answer_correctness: delta -0.0753 crossed the review threshold +0.0000",
+    "cost_per_query: delta +27.83% crossed the review threshold +15.00%"
+  ],
+  "timestamp": "2026-08-30T10:05:36.568687Z"
+}
