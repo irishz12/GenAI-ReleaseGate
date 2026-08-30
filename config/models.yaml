@@ -1,0 +1,91 @@
+# Model configuration.
+# generator and judge MUST point at different model families (see docs/ARCHITECTURE.md §13).
+#
+# The top-level `generator`/`judge` pair below is what the offline pipeline (Phase 0-2:
+# registry, runner tests, scripts/run_pair.py) uses by default — FakeClient, $0
+# pricing, deterministic. Nothing in that pipeline reads `bedrock_mantle:` below, so
+# filling that section in can never change what the default pipeline does.
+
+generator:
+  provider: fake
+  model_id: fake-generator-v1
+  params:
+    temperature: 0.0
+    max_tokens: 1024
+    top_p: 1.0
+  price_per_1k_input_tokens: 0.0   # verified: FakeClient makes no real calls, cost is genuinely $0
+  price_per_1k_output_tokens: 0.0
+
+judge:
+  provider: fake
+  model_id: fake-judge-v1
+  params:
+    temperature: 0.0
+    max_tokens: 512
+    top_p: 1.0
+  price_per_1k_input_tokens: 0.0
+  price_per_1k_output_tokens: 0.0
+
+# Real-provider model identity for Phase 3 (scripts/smoke_test_mantle.py). Endpoint and
+# API key are connection secrets and come from .env instead (MANTLE_BASE_URL,
+# MANTLE_API_KEY) — never put those here.
+bedrock_mantle:
+  # Frozen model IDs (user-confirmed, not guessed) — do not substitute another model
+  # if one of these turns out to be unavailable; stop and report instead
+  # (scripts/smoke_test_mantle.py enforces this via a required /models check).
+  generator:
+    provider: bedrock_mantle
+    model_id: qwen.qwen3-next-80b-a3b-instruct
+    params:
+      temperature: 0.0
+      max_tokens: 256
+      top_p: 1.0
+    # VERIFIED against AWS's own structured Price List API (not a scraped pricing
+    # page — see below), for the exact SKU covering this model in ap-south-1 at the
+    # "standard" (real-time, on-demand) tier, which is what BedrockMantleClient uses:
+    #
+    #   Source:  https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonBedrock/
+    #            20260826181919/ap-south-1/index.json  (offer code: AmazonBedrock;
+    #            publicationDate 2026-08-26T18:19:19Z)
+    #   Input:   SKU R24AQ4NU3YMMNCS7 — "$0.000168 per 1K token for
+    #            qwen.qwen3-next-80b-a3b-instruct-mantle-input-tokens-standard in
+    #            Asia Pacific (Mumbai)"
+    #   Output:  SKU MDTJCXAHB6K3MF39 — "$0.00144 per 1K token for
+    #            qwen.qwen3-next-80b-a3b-instruct-mantle-output-tokens-standard in
+    #            Asia Pacific (Mumbai)"
+    #
+    # Two earlier attempts to read this off aws.amazon.com/bedrock/pricing (a
+    # JS-rendered page) via a text-extracting fetch gave two DIFFERENT, mutually
+    # inconsistent numbers ($0.18/$1.41 and $0.15/$1.20) for this same model+region —
+    # neither was used. The AWS Price List API above is the actual machine-readable
+    # source of truth AWS's own console/billing reads from; it is not re-fetched
+    # automatically, so re-verify if pricing might have changed since the date above.
+    price_per_1k_input_tokens: 0.000168
+    price_per_1k_output_tokens: 0.00144
+
+  # Frozen judge (Phase 5): temperature 0, never sees prompt version/role/generator
+  # identity — see quality/judge.py. `params.max_tokens` is correctness's frozen
+  # budget only (Phase 8.2) — faithfulness has its own, separate budget below.
+  judge:
+    provider: bedrock_mantle
+    model_id: openai.gpt-oss-120b
+    params:
+      temperature: 0.0
+      max_tokens: 512
+      top_p: 1.0
+    # VERIFIED against the same AWS Price List API as the generator above, same
+    # publicationDate (2026-08-26T18:19:19Z), "standard" tier:
+    #   Input:  SKU 7DDCEDFRHXPEER3K — "$0.00018 per 1K token for
+    #           openai.gpt-oss-120b-mantle-input-tokens-standard in Asia Pacific (Mumbai)"
+    #   Output: SKU J3YESDWFKJVJEVGQ — "$0.00071 per 1K token for
+    #           openai.gpt-oss-120b-mantle-output-tokens-standard in Asia Pacific (Mumbai)"
+    price_per_1k_input_tokens: 0.00018
+    price_per_1k_output_tokens: 0.00071
+
+  # Phase 8.2: faithfulness's own frozen budget (same model, same temperature=0/
+  # top_p=1.0 as judge.params above — only max_tokens differs). 512 reliably
+  # produced truncated/malformed JSON on real dev cases (Phase 8 run: 6/120
+  # grounded_qa responses never got a faithfulness score after 3 resume/retry
+  # passes); Phase 8.1's investigation (scripts/investigate_judge_budget.py) found
+  # 1024 reliably parses across 2 independent passes on every one of those 6 cases.
+  judge_faithfulness_max_tokens: 1024

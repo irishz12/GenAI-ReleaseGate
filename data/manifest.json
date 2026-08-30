@@ -1,0 +1,51 @@
+{
+  "case_file_hashes": {
+    "dev/abstention.jsonl": "235a8fe48bd2eb406a788bae0f001fbe26b76010c7e59c9640854d75fe49038b",
+    "dev/grounded_qa.jsonl": "0303ad67cba09fac87ddfefb8ae1fcea003cfa6ccf3c7ff384dda3741c03329d",
+    "dev/guardrail.jsonl": "79ce754e1af711aeeaae8b236924f0334400e4ca903a923d8f1ff08ca34607e0",
+    "dev/instruction_following.jsonl": "af373c6b64afbd4b03194b95cf204830a56503135fe4666d0c8f8384c510603f",
+    "holdout/abstention.jsonl": "a2297f4bd79f844f0544d283e597de9492b087e4fbb068874df6c6de5d2d297a",
+    "holdout/grounded_qa.jsonl": "2300a155a19dca788285f2b83d8e5a76adf8132a698c0815a32e16c1accb248d",
+    "holdout/guardrail.jsonl": "7fdb98c18175be4ce2e602ce9cfb70d18e36c9a7e2534c652d5aef259321f93f",
+    "holdout/instruction_following.jsonl": "2a8e56e20dcc88f7e73fb634f34c9fa10025655f3b71b6e1530949afe146719e"
+  },
+  "category_counts": {
+    "abstention": 20,
+    "grounded_qa": 80,
+    "guardrail": 40,
+    "instruction_following": 20
+  },
+  "category_split_counts": {
+    "abstention": {
+      "dev": 15,
+      "holdout": 5
+    },
+    "grounded_qa": {
+      "dev": 60,
+      "holdout": 20
+    },
+    "guardrail": {
+      "dev": 30,
+      "holdout": 10
+    },
+    "instruction_following": {
+      "dev": 15,
+      "holdout": 5
+    }
+  },
+  "corpus_hash": "f560f6f720889650fec9a3ee993c8dbbb6604bc37cc21e0e884a9c6f463035dd",
+  "generated_at": "2026-08-29T18:48:59.936081+00:00",
+  "seed": 42,
+  "source_file_hashes": {
+    "doc2dial_dial_validation.json": "9b4118e345af47451c84e8e27c1dba2844fcaafeacb059380b4ac8fbb9b62a16",
+    "doc2dial_doc.json": "547ed8ee5bfd7babdadfb6246b1b3fc5fa107a4abdef972bc63c9b717000f56f"
+  },
+  "source_name": "doc2dial",
+  "source_url": "https://doc2dial.github.io/file/doc2dial_v1.0.1.zip",
+  "source_version": "v1.0.1",
+  "split_counts": {
+    "dev": 120,
+    "holdout": 40
+  },
+  "total_cases": 160
+}
