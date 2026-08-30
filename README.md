@@ -4,8 +4,7 @@ Statistical release gating for production LLM agents — decide whether a new pr
 safe and genuinely better before it ships, with evidence instead of a single benchmark
 score.
 
-**Live Demo:** _not yet deployed — Vercel deployment is a planned next step (see
-[Architecture](#architecture))._
+**Live Demo:** https://genai-releasegate.vercel.app
 
 ---
 
@@ -186,7 +185,7 @@ GO / REVIEW / HOLD / INVALID  +  structured JSON report (results/reports/*.json)
    │
    ▼
 Next.js dashboard (frontend/) — visualization only, reads committed JSON,
-never calls Bedrock. Not yet deployed to Vercel.
+never calls Bedrock. Live at genai-releasegate.vercel.app.
 ```
 
 ## Failure Analysis
