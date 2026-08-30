@@ -1,21 +1,26 @@
 #!/usr/bin/env python3
-"""THE holdout acceptance test: Production V1 vs Candidate V3, full 40-case HOLDOUT
+"""THE holdout acceptance test: Production V1 vs a Candidate, full 40-case HOLDOUT
 evaluation. Frozen setup, unchanged: generator qwen.qwen3-next-80b-a3b-instruct,
 judge openai.gpt-oss-120b, correctness max_tokens=512, faithfulness max_tokens=1024,
 guardrail version 2, policy/metrics unchanged (all Phase 8-9 decisions).
 
-This is the ONE sealed look at holdout this project has ever taken. Deliberately
-narrow and inflexible on purpose:
+Each sealed look at holdout is a deliberate, explicit, one-time exception — this
+script stays narrow and inflexible on purpose:
   - CaseSplit.HOLDOUT is hardcoded — there is no flag to point this at dev by
     mistake, unlike scripts/run_dev_eval.py.
   - No --max-cases debug option — no partial/exploratory look at holdout data.
-  - No reuse/replay logic — neither V1 nor V3 has ever been run against holdout
-    before, so there is nothing valid to reuse; this is a genuine, full, fresh run
-    for both prompts (same pipeline already proven correct across every dev run).
+  - No reuse/replay logic — a fresh candidate's holdout responses are never reused
+    from a prior run; this is a genuine, full, fresh run for both prompts every
+    time (same pipeline already proven correct across every dev run).
   - Writes to its own dedicated DB (artifacts/holdout_eval.db), never dev_eval.db.
+  - --candidate-version (mirroring scripts/run_v1_v3_dev_eval.py's existing flag,
+    default "v3" to preserve original behavior) selects which already-dev-evaluated
+    candidate gets its ONE sealed look — it does not loosen any of the guards
+    above, and each additional candidate run is still exactly one deliberate,
+    explicitly-requested holdout exception, not a general-purpose reusable gate.
 
 Usage:
-    python scripts/run_holdout_eval.py
+    python scripts/run_holdout_eval.py [--candidate-version v3.4]
 """
 
 from __future__ import annotations
@@ -230,7 +235,14 @@ def _print_summary(summary: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", default=str(REPO_ROOT / "artifacts" / "holdout_eval.db"))
+    parser.add_argument(
+        "--candidate-version",
+        default="v3",
+        help="Candidate version to compare against V1, e.g. v3 or v3.4 "
+        "(expects prompts/candidate/support_agent.<version>.md to exist).",
+    )
     args = parser.parse_args()
+    candidate_label = args.candidate_version
 
     if not holdout_available():
         print("Refusing: data/holdout/ is not fully present.")
@@ -283,11 +295,15 @@ def main() -> int:
         version="v1",
         role=PromptRole.PRODUCTION,
     )
-    prompt_v3 = register_from_file(
+    candidate_file = DEFAULT_PROMPTS_DIR / "candidate" / f"support_agent.{candidate_label}.md"
+    if not candidate_file.exists():
+        print(f"Refusing: no such candidate prompt file {candidate_file}")
+        return 1
+    prompt_candidate = register_from_file(
         conn,
-        DEFAULT_PROMPTS_DIR / "candidate" / "support_agent.v3.md",
+        candidate_file,
         name="support_agent",
-        version="v3",
+        version=candidate_label,
         role=PromptRole.CANDIDATE,
     )
 
@@ -295,7 +311,7 @@ def main() -> int:
     guardrail_config_hash = hash_file(GUARDRAIL_CONFIG_PATH)
 
     runs: dict[str, Run] = {}
-    for label, prompt in (("v1", prompt_v1), ("v3", prompt_v3)):
+    for label, prompt in (("v1", prompt_v1), (candidate_label, prompt_candidate)):
         print(f"\n=== Prompt {label} ({prompt.name}@{prompt.version}) ===")
         manifest = build_run_manifest(
             prompt=prompt,
@@ -352,9 +368,9 @@ def main() -> int:
             summary = _category_summary(conn, run, cases_by_category, category)
             _print_summary(summary)
 
-    print("\n=== HOLDOUT Regression comparison (V1 baseline vs v3 candidate) ===")
+    print(f"\n=== HOLDOUT Regression comparison (V1 baseline vs {candidate_label} candidate) ===")
     policy = load_policy_config()
-    comparison = compare_runs(conn, runs["v1"].id, runs["v3"].id, policy)
+    comparison = compare_runs(conn, runs["v1"].id, runs[candidate_label].id, policy)
     comparison = upsert_comparison(conn, comparison)
     print(f"n_paired={comparison.n_paired}")
     print(f"decision={comparison.release.status.value}")

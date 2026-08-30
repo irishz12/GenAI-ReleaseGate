@@ -32,18 +32,22 @@ export const DECISION_META: Record<Decision, DecisionMeta> = {
 };
 
 /**
- * As of this writing, no real comparison in results/reports/*.json has ever
- * produced GO (v1_vs_v2_dev=HOLD, v1_vs_v3_dev=REVIEW, v2_vs_v3_dev=REVIEW,
- * v1_vs_v3_holdout=REVIEW). That's not a gap in the product — it's what
- * actually happened in this candidate's release history.
+ * HISTORICAL NOTE: at the time this fixture was written, no real comparison
+ * in results/reports/*.json had ever produced GO (v1_vs_v2_dev=HOLD,
+ * v1_vs_v3_dev/v3.1/v3.2/v3.3=REVIEW). It existed ONLY to prove the engine
+ * supports and correctly reaches GO, using the same shape of deterministic,
+ * hand-built delta set as the backend's "Decision Engine Validation
+ * Scenarios" (tests/unit/test_policy_engine.py::
+ * test_scenario_go_deterministic_fixture_every_gate_within_threshold),
+ * evaluated against the real config/policy.yaml thresholds.
  *
- * This fixture exists ONLY to show that the engine supports and correctly
- * reaches GO. It is the same shape of deterministic, hand-built delta set
- * used by the backend's "Decision Engine Validation Scenarios"
- * (tests/unit/test_policy_engine.py::test_scenario_go_deterministic_fixture_every_gate_within_threshold),
- * evaluated against the real config/policy.yaml thresholds. It is a
- * VALIDATION FIXTURE, never a real V1/V2/V3 result — labeled as such
- * everywhere it's rendered.
+ * V3.4 has since achieved a REAL GO, on both dev and the sealed holdout
+ * (see data/experiments.ts::getV34Headline, results/reports/
+ * v1_vs_v3.4_dev.json and v1_vs_v3.4_holdout.json). This fixture played NO
+ * part in that result and is kept only as a unit-testing/engine-validation
+ * artifact — it must never be presented as the reason the project achieved
+ * GO. It remains a VALIDATION FIXTURE, never a real result — labeled as
+ * such everywhere it's rendered.
  */
 export const GO_VALIDATION_FIXTURE = {
   source:

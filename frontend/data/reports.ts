@@ -19,8 +19,13 @@ const REPORTS_DIR = path.join(process.cwd(), "..", "results", "reports");
 const REPORT_IDS = [
   "v1_vs_v2_dev",
   "v1_vs_v3_dev",
+  "v1_vs_v3.1_dev",
+  "v1_vs_v3.2_dev",
   "v2_vs_v3_dev",
+  "v1_vs_v3.3_dev",
+  "v1_vs_v3.4_dev",
   "v1_vs_v3_holdout",
+  "v1_vs_v3.4_holdout",
 ] as const;
 
 export type ReportId = (typeof REPORT_IDS)[number];
@@ -33,7 +38,8 @@ function readReport(id: ReportId): ExperimentReport {
 
 let cache: Record<ReportId, ExperimentReport> | null = null;
 
-/** All four real, persisted comparisons. Cached per server process — the
+/** Every real, persisted comparison — the full V1→V2→V3→V3.1→V3.2→V3.3→V3.4
+ * release history, on both dev and holdout. Cached per server process — the
  * files are immutable build artifacts, not live data, so re-reading them
  * on every request would be pure overhead, not a freshness concern. */
 export function getAllReports(): Record<ReportId, ExperimentReport> {

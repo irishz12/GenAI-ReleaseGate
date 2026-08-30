@@ -65,6 +65,26 @@ export default function PromptsPage() {
             targeting the two root causes behind V2&apos;s regression without weakening the
             insufficient-information rule that fixed abstention.
           </p>
+          <p>
+            <strong className="text-ink">V3 → V3.1 → V3.2:</strong> tried a rigid 2- then
+            3-sentence output cap to cut cost — neither closed the gap, and both reintroduced a
+            faithfulness regression by truncating rule 3&apos;s required specificity.
+          </p>
+          <p>
+            <strong className="text-ink">V3 → V3.3:</strong> replaced the sentence cap with a
+            qualitative anti-preamble instruction (no numeric limit) — closed most of the cost
+            gap without the faithfulness cost, but still missed the 15% threshold by 1.3pp.
+          </p>
+          <p>
+            <strong className="text-ink">V3.3 → V3.4:</strong> trimmed the instruction text
+            itself, once response-level data showed the input tokens (not output length) were the
+            actual dominant cost driver — cleared the threshold on both dev and the sealed
+            holdout. See{" "}
+            <a href="/statistics" className="underline underline-offset-2">
+              Statistics
+            </a>{" "}
+            for the full comparison.
+          </p>
         </CardContent>
       </Card>
     </div>

@@ -11,8 +11,13 @@ import type { GateStatus } from "@/data/types";
 const COMPARISON_LABELS: Record<string, string> = {
   v1_vs_v2_dev: "V2 vs V1 — dev",
   v1_vs_v3_dev: "V3 vs V1 — dev",
+  "v1_vs_v3.1_dev": "V3.1 vs V1 — dev",
+  "v1_vs_v3.2_dev": "V3.2 vs V1 — dev",
   v2_vs_v3_dev: "V3 vs V2 — dev",
+  "v1_vs_v3.3_dev": "V3.3 vs V1 — dev",
+  "v1_vs_v3.4_dev": "V3.4 vs V1 — dev",
   v1_vs_v3_holdout: "V3 vs V1 — holdout (sealed)",
+  "v1_vs_v3.4_holdout": "V3.4 vs V1 — holdout (sealed)",
 };
 
 const GATE_BADGE: Record<GateStatus, "go" | "review" | "hold"> = {
@@ -57,8 +62,12 @@ export default function ReleaseGatePage() {
           <Badge variant="real">REAL DATA</Badge>
         </div>
         <p className="mt-1 text-ink-muted">
-          The four real, persisted comparisons. No real comparison has ever produced GO — that is
-          what actually happened in this candidate&apos;s release history, not a gap in the harness.
+          Every real, persisted comparison — the full release history. V2 through V3.3 were each
+          HELD or REVIEWed for a real reason; <strong className="text-ink">V3.4 is the first
+          candidate to pass all 8 gates</strong>, on both the dev set and the sealed holdout. The
+          decision engine evaluates every gate and applies the configured policy —{" "}
+          <strong className="text-ink">no manual override was used</strong> to produce any result
+          below, including V3.4&apos;s GO.
         </p>
       </div>
 
@@ -113,13 +122,15 @@ export default function ReleaseGatePage() {
           <FixtureBadge />
         </div>
         <p className="mt-1 text-ink-muted">
-          A clearly-labeled synthetic fixture — NOT a real experiment — proving the engine
-          reaches GO. Same shape as the backend&apos;s own{" "}
+          Before V3.4&apos;s real GO existed, this clearly-labeled synthetic fixture — NOT a real
+          experiment — was used to prove the engine could reach GO at all. Same shape as the
+          backend&apos;s own{" "}
           <code className="font-mono text-xs">
             test_scenario_go_deterministic_fixture_every_gate_within_threshold
           </code>
           , evaluated against the real <code className="font-mono text-xs">config/policy.yaml</code>{" "}
-          thresholds.
+          thresholds. It played no part in V3.4&apos;s result and is kept only for engine
+          validation.
         </p>
       </div>
       <Card className="border-dashed border-accent bg-surface-muted">

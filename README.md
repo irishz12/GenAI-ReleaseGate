@@ -1,355 +1,259 @@
-# Can We Safely Ship a Better LLM?
+# GenAI ReleaseGate
 
-**Live results site:** https://irishz12.github.io/GenAI-Evaluation-Guardrails/
+Statistical release gating for production LLM agents — decide whether a new prompt is
+safe and genuinely better before it ships, with evidence instead of a single benchmark
+score.
 
-Every team running an LLM in production eventually asks the same question: *we have a
-new prompt/model that looks better — should we ship it?* Usually that's answered by
-eyeballing a handful of outputs. **GenAI ReleaseGate** answers it with a repeatable,
-statistically grounded pipeline instead: generate responses under the candidate and the
-current production version, score them for quality, safety, cost, and latency, run a
-paired statistical comparison, and evaluate a declarative release policy that returns
-exactly one of four answers — **GO / REVIEW / HOLD / INVALID** — with the specific
-reason for every gate that didn't clear.
-
-This repository *is* that pipeline, exercised on a real three-prompt release history for
-a customer-support LLM agent, with all of its actual results — including the one that
-matters most: **the automated gate caught a real regression that the development data
-never revealed**, and a human reviewer, looking at the gate's own evidence, declined to
-ship it.
+**Live Demo:** _not yet deployed — Vercel deployment is a planned next step (see
+[Architecture](#architecture))._
 
 ---
 
-## 1. The three-prompt story
+## The Problem
 
-| Version | Role | What changed | Automated gate decision |
-|---|---|---|---|
-| **V1** | Production | Answer from context only, plain refusal on insufficient information | *(incumbent baseline)* |
-| **V2** | Candidate | Added an emphatic insufficient-information rule to fix under-abstention | **HOLD** |
-| **V3** | Refined candidate | Root-caused V2's regression and fixed it with two targeted rule changes | **REVIEW** |
+Most LLM prompt changes are judged by eyeballing a handful of outputs. That misses
+exactly the failures that matter most: a change that improves one metric can silently
+regress another; a prompt that looks like a clear win on the data you iterated against
+can fail to generalize; a safety guardrail tuned to be maximally strict can quietly
+block a large fraction of legitimate traffic. None of that shows up in a spot check.
 
-**V2 → HOLD.** V2 fixed under-abstention (6.67% → 93.33% accuracy) but at a real cost:
-faithfulness dropped by **−0.1077** (95% CI `[−0.214, −0.003]`, excludes zero), crossing
-the policy's −0.08 hold threshold. Independently, the candidate's benign false-positive
-rate measured **55.56%** against a 15% cap. *(That 55.56% is a Guardrail v1 measurement —
-the guardrail active at the time, not something V2's prompt caused: V1 measured the exact
-same 55.56% in this comparison, since both were scored under the same guardrail
-configuration. V2 was never re-evaluated under the later, calibrated Guardrail v2 — see
-§4. Both reasons are reported because the policy engine is worst-gate-wins: any single
-hard-gate violation is enough to HOLD, independent of the other.)*
+## Business Use Case
 
-**V3 → REVIEW.** V3 targeted V2's exact faithfulness regression with two minimal prompt
-changes (§7) and looked like a real improvement on the 120-case development set —
-correctness +0.023, faithfulness back up to 86.07%, every quality and safety gate GO. The
-only flagged gate on dev was cost (+25.79%, a soft REVIEW-only gate). **Then the sealed
-40-case holdout split told a different story.**
+An enterprise customer-support AI team needs to answer one question before every
+release: **"Can we safely ship this LLM change?"** GenAI ReleaseGate answers it with a
+repeatable pipeline — generate, score, statistically compare, and decide — rather than
+a person's judgment call on a handful of examples.
 
-## 2. The holdout discovery — the headline result
+## What GenAI ReleaseGate Does
 
-![Dev vs holdout](results/charts/dev_vs_holdout_correctness.png)
+Generates responses under a production prompt and a candidate, scores them for quality
+(correctness, faithfulness, hallucination), safety (a real AWS Bedrock Guardrail), cost,
+and latency, runs a paired statistical comparison, and evaluates a declarative policy
+that answers exactly one of four ways:
 
-| | Dev (n=120) | Holdout (n=40, sealed) |
+| State | Meaning |
+|---|---|
+| **GO** | The candidate satisfies every release requirement — passed the release gate. |
+| **REVIEW** | Evidence is inconclusive, or a trade-off requires a human decision. |
+| **HOLD** | A hard release criterion was violated — automatic release block. |
+| **INVALID** | The evaluation itself isn't trustworthy enough to decide. |
+
+## Real Prompt Release Experiment
+
+Six real candidates, evaluated against production baseline V1 by the same automated
+pipeline. The gate rejected or reviewed five of them before one passed:
+
+```
+V1 (Production baseline)
+  │
+  ▼
+V2  ──▶  HOLD      faithfulness regression; benign false-positive issue under the
+                    guardrail configuration active for that run
+  │
+  ▼
+V3  ──▶  REVIEW    cost +25.79%
+  │
+  ▼
+V3.1 ──▶ REVIEW    cost +17.02% — AND a reintroduced faithfulness regression
+  │
+  ▼
+V3.2 ──▶ REVIEW    cost +22.54% — faithfulness still flagged
+  │
+  ▼
+V3.3 ──▶ REVIEW    cost +16.30% — missed the 15% threshold by 1.3pp
+  │
+  ▼
+V3.4 ──▶ GO        all 8 gates passed — dev cost +12.17%, holdout cost +10.81%
+```
+
+V3.1 and V3.2 tried to cut cost with a rigid 2- and 3-sentence output cap — neither
+closed the gap, and both reintroduced the faithfulness regression V3 had fixed (a hard
+length limit truncates the specific-restatement content the judge rewards). V3.3
+replaced the cap with a qualitative anti-preamble instruction and got much closer
+without the faithfulness cost, but still missed the threshold. V3.4's fix came from a
+different, data-derived insight: measuring actual response tokens showed the cost
+overrun was dominated by *input* tokens (the instruction text itself, sent on every
+call) — not output length. Trimming that got it under the line. Full prompt text and
+reasoning for every version: [`/prompts`](prompts/), [Failure Analysis](#failure-analysis).
+
+## V3.4 Results
+
+**GO on both the 120-case development set and the 40-case sealed holdout — no manual
+override, no threshold changed to produce this result.**
+
+| | Dev (n=120) | Holdout (n=40) |
 |---|---|---|
-| Answer correctness delta (V3 − V1) | +0.0232 | **−0.0753** |
-| 95% CI | `[−0.051, +0.102]` (straddles zero) | **`[−0.177, −0.012]` (excludes zero)** |
-| Automated gate decision | REVIEW | **REVIEW** |
+| Decision | **GO** | **GO** |
+| Answer correctness | 74.39% → 82.37% (+7.98pp) | 59.47% → 69.58% (+10.11pp) |
+| Faithfulness | 84.40% → 88.93% (+4.53pp) | 83.60% → 86.40% (+2.81pp) |
+| Hallucination | 5.08% → 1.69% | 5.26% → 0.00% |
+| Instruction following | 60.00% → 66.67% | 60.00% → 60.00% |
+| Abstention accuracy | 6.67% → 93.33% | 0.00% → 100.00% |
+| Prompt injection block rate | 100% → 100% | 100% → 100% |
+| Sensitive-info protection | 100% → 100% | 100% → 100% |
+| Cost per query | +12.17% | +10.81% |
+| p95 latency | −30.6% | −16.0% |
 
-V3 looked promising through the entire development cycle. The automated gate returned
-REVIEW on dev (cost was the only flag). Then, on the one sealed acceptance look this
-project allows itself (40 cases neither prompt had touched before), correctness reversed
-into a statistically confirmed **−7.53 percentage-point regression**, CI excluding zero.
-The automated gate returned REVIEW again — correctly: a confirmed regression of this
-size crosses the *review* threshold but not the harsher −0.10 *hold* threshold, so
-REVIEW, not HOLD, is the correct, evidence-matched decision here. **A human reviewer
-looked at that evidence and declined to promote V3. V1 remained the production
-baseline** — not because an algorithm forced a HOLD, but because a person, given an
-honest REVIEW-with-a-confirmed-regression, made the conservative call. That's the
-pipeline working as designed: it surfaces the evidence and the trade-off; it doesn't
-pretend the decision is fully mechanical when it isn't.
+All 8 real, persisted comparisons (V2 through V3.4, dev and holdout) are in
+[`results/reports/`](results/reports/) as structured JSON — nothing summarized here is
+hand-typed independently of that data.
 
-Root cause, found by reading the actual failing responses rather than trusting only the
-aggregate number: the same over-refusal pattern V3 had already partially fixed in dev
-(§7) was concentrated more heavily in this particular holdout sample.
+## Dev vs Sealed Holdout
 
-## 3. V3 vs V2 — the comparison nobody had run yet
+```
+Development evaluation (120 cases)
+        │
+        ▼
+   V3.4 = GO
+        │
+        ▼
+Sealed holdout (40 cases, never touched before this run)
+        │
+        ▼
+   V3.4 = GO
+        │
+        ▼
+   Promotion evidence
+```
 
-Every comparison above uses V1 as the baseline. Recomputing directly against the
-already-persisted dev data — no new model calls — answers a different question: *did V3
-actually improve on V2, the version it was meant to replace?*
+The candidate was not treated as ready just because it passed development evaluation.
+The identical prompt was evaluated again on a sealed holdout split, using the same
+unmodified release policy — this is the exact discipline that caught V3's real
+regression earlier in this project's history (correctness delta −7.53pp, CI
+[−17.7, −1.2] — see [Failure Analysis](#failure-analysis)) and is what makes V3.4's GO
+a stronger claim than a single dev-set win.
 
-| Metric | V2 (baseline) | V3 (candidate) | Delta |
-|---|---|---|---|
-| Answer correctness | 74.61% | 76.71% | +0.0210 |
-| Faithfulness | 73.45% | 86.07% | **+0.1263** |
-| Cost per query | — | — | **+37.60%** |
+**Statistical honesty:** V3.4's quality improvements were directionally consistent
+across Dev and Holdout. The release decision itself replicated: GO on both datasets.
+Answer correctness excludes zero on dev (CI [+0.8, +15.8]pp) but straddles zero on the
+smaller 40-case holdout (CI [−3.3, +26.7]pp) — directionally consistent, not
+independently statistically confirmed there. We do not claim every quality metric was
+statistically significant on both splits — only abstention accuracy and (on dev) cost
+per query survive Holm-Bonferroni correction across the tested metrics.
 
-**Decision: REVIEW.** Every quality and safety gate is GO — V3 is a clear improvement on
-V2's own faithfulness regression, which is exactly what it was built to fix. The only
-flag is cost (+37.60%, past the 15% soft-gate threshold). This is real, computed
-evidence (`scripts/compute_v3_vs_v2.py`, paired on the same 120 dev cases,
-`results/reports/v2_vs_v3_dev.json`) — not a restatement of the V1-anchored comparisons
-above.
+## Release Decision Engine
 
-## 4. The safety story: effective blocking, not maximum blocking
+One declarative policy (`config/policy.yaml`), worst-gate-wins: every configured gate
+evaluates independently, and the overall decision is the single worst outcome among
+them — any HOLD → HOLD, else any REVIEW → REVIEW, else GO. Quality and safety metrics
+are hard gates that can HOLD; cost and latency are soft gates that can only ever
+REVIEW, structurally impossible to HOLD by construction (no hold threshold or absolute
+bound is configured for them). A comparison is INVALID, independent of any gate, if too
+many paired cases failed on either side to trust it.
 
-![Guardrail improvement](results/charts/guardrail_improvement.png)
+The decision engine evaluates every gate and applies the configured policy — no manual
+override was used to produce any result in this project, including V3.4's GO. A
+separate, clearly-labeled synthetic **validation fixture** exists in the test suite to
+prove the engine can reach GO in principle; it predates V3.4's real result and played no
+part in it (`tests/unit/test_policy_engine.py`).
 
-| | Guardrail v1 (`PROMPT_ATTACK=HIGH`) | Guardrail v2 (`PROMPT_ATTACK=MEDIUM`) |
-|---|---|---|
-| Prompt injection block rate | 100% | 100% (unchanged) |
-| Sensitive-information protection | 100% | 100% (unchanged) |
-| Benign false positives (guardrail suite) | 55.56% | **11.11%** |
-| Benign false positives (all 99 non-attack cases) | 12.12% | **6.06%** |
+## Statistical Methodology
 
-The objective of a guardrail is not "block as much as possible" — a guardrail that
-blocks 100% of everything is trivially safe and trivially useless. The objective is
-**effective safety with minimal disruption to legitimate users**. Guardrail v1 caught
-every real attack, but at a cost of rejecting more than half of the benign traffic in
-its own test suite — a support agent that refuses one in two real questions has failed
-its actual job. Guardrail v2 (a single-parameter change: attack-detection strength
-`HIGH` → `MEDIUM`, PII policy untouched) preserved a perfect 100%/100% block rate on
-both attack types while cutting benign false positives by roughly 5x. Zero cost to
-safety, a large win for usability. **Adopted.**
+Every comparison reports a paired mean delta (joined by `case_id`), a paired bootstrap
+95% confidence interval (2,000 resamples, fixed seed — identical data always produces
+an identical interval), a median paired difference, a paired effect size (Cohen's d),
+and a Holm-Bonferroni correction across the metrics tested in that comparison. None of
+this feeds back into the release decision — the gates read only the raw delta and CI,
+exactly as before these additions existed.
 
-This is also why §1's V2 HOLD is annotated carefully: V2 was only ever evaluated under
-Guardrail v1 (55.56% FP), and was never re-run under v2, so it's unknown whether V2
-would have cleared the 15% cap under the calibrated guardrail. The gate result is
-accurate for what was actually measured; it should not be read as "V2's prompt is
-worse than V3's" on this axis — no such comparison has been made.
+## AWS Bedrock Guardrails
 
-## 5. Business value
+A real Amazon Bedrock Guardrail (native `ApplyGuardrail`, prompt-injection + PII
+policies) checks every input and output. Guardrail v1 (`PROMPT_ATTACK=HIGH`) caught
+every real attack but over-blocked benign traffic badly — 55.56% of its own test suite.
+Guardrail v2 (`PROMPT_ATTACK=MEDIUM`, PII policy untouched) preserved a perfect 100%
+attack-blocking / 100% PII-protection rate while cutting benign false positives to
+11.11% — a 5x reduction at zero cost to safety. Adopted, and used for every comparison
+from V3 onward. (V2's HOLD includes a 55.56% benign-FP reading from Guardrail v1 — V2
+was never re-tested under v2.)
 
-1. **Prevent quality regressions from reaching production** — the V1-vs-V3 holdout
-   result is the existence proof: a change that looked safe on dev data was caught
-   before shipping.
-2. **Identify safety regressions independently of quality** — guardrail metrics are
-   hard gates with absolute floors, evaluated regardless of how good the prompt's
-   answers are.
-3. **Reduce unnecessary blocking of legitimate users** — §4's 5x false-positive
-   reduction, found and validated the same way as any other release decision.
-4. **Quantify cost and latency trade-offs explicitly** — every comparison reports them
-   as first-class, separately-tracked metrics, not an afterthought.
-5. **Provide statistically supported release evidence** — paired bootstrap confidence
-   intervals, median differences, effect sizes, and Holm-corrected significance (§6),
-   not point estimates alone.
-6. **Create an auditable release decision** — every GO/REVIEW/HOLD/INVALID comes with
-   the exact gate, threshold, and observed value that produced it, persisted as
-   structured JSON (§8), not a verbal judgment call.
+## Architecture
 
-## 6. Statistical rigor
+```
+Prompt (V1 / candidate)
+   │
+   ▼
+Stage A: Generate (real Bedrock Mantle call) + Guardrail check (real ApplyGuardrail)
+   │
+   ▼
+Stage B: Deterministic scoring + blind LLM judge (correctness, faithfulness, hallucination)
+   │
+   ▼
+Stage C: Pair by case_id → statistics (mean, CI, median, effect size, Holm) → policy engine
+   │
+   ▼
+GO / REVIEW / HOLD / INVALID  +  structured JSON report (results/reports/*.json)
+   │
+   ▼
+Next.js dashboard (frontend/) — visualization only, reads committed JSON,
+never calls Bedrock. Not yet deployed to Vercel.
+```
 
-Every comparison reports, per metric:
+## Failure Analysis
 
-- **Mean paired delta** (candidate − baseline, joined by `case_id`) and a **paired
-  bootstrap 95% CI** (2,000 resamples, fixed seed — identical DB state always produces
-  an identical interval).
-- **Median paired delta** — alongside the mean, not instead of it; robust to the
-  occasional wildly mis-scored single case that would otherwise skew a small sample's
-  mean.
-- **Effect size** (paired Cohen's d) — the magnitude of a shift, independent of how many
-  cases happened to be available.
-- **Holm-Bonferroni correction** — when several metrics are tested in the same
-  comparison, this is exactly the multiple-comparison exposure that inflates false
-  "significant" findings; Holm's step-down procedure controls for it across the metrics
-  actually tested in that comparison.
+Two real root causes, found by reading actual failing responses:
 
-None of this feeds back into the release decision itself — `config/policy.yaml`'s gates
-still read only the raw delta and CI, exactly as before these were added. They're
-**additional evidence attached to the same decision**, not a second, competing decision
-process. (`src/evalguard/regression/statistics.py`, unit-tested independently, plus a
-regression test proving the correction never changes a historical GO/REVIEW/HOLD/INVALID
-outcome.)
-
-## 7. Root cause analysis (V2 → V3)
-
-Two distinct causes, found by reading actual failing responses:
-
-- **Over-triggering refusal** — V2's stronger insufficient-information rule caused the
+- **Over-triggering refusal** (V2): a stronger insufficient-information rule caused the
   model to decline questions the context actually answered, especially phrased
-  conversationally ("Can you tell me more about it?").
-- **Judge sensitivity to bare refusals** — even a *correct* refusal scored 0.0
-  faithfulness under the judge's claim-extraction rubric if phrased as a generic,
-  content-free sentence.
+  conversationally.
+- **Judge sensitivity to bare refusals** (V2): even a correct refusal scored 0.0
+  faithfulness under the judge's claim-extraction rubric if generic; restating
+  specifically what the context does/doesn't cover scored as a supported claim.
 
-V3's fix (`prompts/candidate/support_agent.v3.md`, diffed against V1/V2 in git history):
-a check-before-refusing gate for the first cause, and a "restate specifically what's
-missing" requirement for the second, while preserving the literal phrase the
-deterministic abstention detector needs. Root cause #2 was fully resolved. Root cause #1
-was only *partially* fixed — the residual is exactly what §2's holdout regression
-surfaced.
+V3 fixed both with two targeted rule changes, but a residual over-refusal case remained
+— and that residual is what the sealed holdout caught (correctness delta −7.53pp, CI
+[−17.7, −1.2], decision REVIEW; a human reviewer declined to promote V3, so V1 stayed
+production).
 
-## 8. Decision engine: real results vs. validation fixtures
+Getting V3 under the cost gate took three more iterations: V3.1/V3.2's sentence caps
+cut cost but broke faithfulness again by truncating the same specificity that fixed
+root cause #2. V3.3's qualitative anti-preamble instruction avoided that failure mode
+and got close (16.30%) without the regression. V3.4 closed the rest of the gap by
+measuring where the cost actually came from — input tokens (the instruction template
+itself, fixed overhead on every call: exactly 111 extra tokens per case vs V1, zero
+variance) dominated over output length — and trimmed the instruction wording itself,
+not the response.
 
-The release-policy engine (`src/evalguard/policy/engine.py`) is worst-gate-wins: every
-configured gate is evaluated independently; the overall decision is the single worst
-outcome among them (any HOLD → HOLD, else any REVIEW → REVIEW, else GO). This is
-deliberately preserved, not restructured — it's a simple, auditable rule, and every real
-comparison in this project has been decided by it.
+## Reproducibility
 
-Two kinds of evidence exist in this repository, and they are kept structurally separate:
+- Every prompt is identified by a SHA-256 content hash — an edited file without a
+  version bump is refused, not silently accepted.
+- A run's identity is a content hash over its prompt, case set, model params, and code
+  — resumable by construction.
+- Bootstrap CI, median, effect size, and Holm correction all use a fixed seed —
+  identical DB state always reproduces identical statistics.
+- `data/holdout/` is gitignored; only its count, seed, and per-file SHA-256 hashes are
+  committed (`data/manifest.json`) — enough to verify integrity without shipping
+  sealed content.
+- Charts, comparisons, and JSON reports are all regenerable from `artifacts/*.db` with
+  no new AWS calls (`scripts/generate_result_charts.py`, `scripts/generate_reports.py`,
+  `scripts/recompute_comparisons_with_phase2_stats.py`).
 
-- **Real experiment results** — every comparison in §1–§3, computed from actual
-  generator/judge/guardrail responses, persisted in `artifacts/*.db`, exported as
-  `results/reports/*.json`. As of this writing, **no real comparison has ever produced
-  GO** — V1-vs-V2 is HOLD, V1-vs-V3 (dev and holdout) and V2-vs-V3 are all REVIEW. That's
-  not a gap in the harness; it's what actually happened in this candidate's release
-  history.
-- **Decision-engine validation fixtures** — `tests/unit/test_policy_engine.py`'s
-  "Decision Engine Validation Scenarios" section runs the same engine, against the same
-  real `config/policy.yaml`, with hand-built deterministic deltas, to prove all four
-  states (including **GO**, and multi-gate precedence: two simultaneous HOLDs, a HOLD next
-  to a REVIEW, a REVIEW next to an all-GO field) are reachable and correctly aggregated.
-  These are clearly labeled as fixtures in the test file itself and are never presented
-  as a V1/V2/V3 result.
+## Limitations
 
-No historical decision was ever recomputed to produce a different answer, and no GO was
-manufactured by relabeling a real result.
-
-## 9. Structured reporting
-
-`src/evalguard/reporting/` turns any already-computed `Comparison` into one
-JSON document with an exact, stable schema:
-
-```
-experiment_id, baseline_version, candidate_version, dataset, valid_cases, metrics,
-baseline_values, candidate_values, delta, confidence_interval, effect_size, threshold,
-gate_results, decision, decision_reasons, timestamp
-```
-
-Generated only from real, persisted comparisons (`scripts/generate_reports.py`) —
-`results/reports/v1_vs_v2_dev.json`, `v1_vs_v3_dev.json`, `v2_vs_v3_dev.json`,
-`v1_vs_v3_holdout.json`. This is also the intended data contract for a future frontend
-(§13).
-
-## 10. Architecture
-
-```mermaid
-flowchart TD
-    A["Prompt V1 / V2 / V3"] --> B["Stage A: Generate<br/>(real LLM call)"]
-    B --> C["Stage A: Guardrail check<br/>(input + output, real ApplyGuardrail)"]
-    C --> D["Stage B: Deterministic scoring<br/>(abstention, instruction-format)"]
-    D --> E["Stage B: Blind LLM judge<br/>(correctness, faithfulness, hallucination)"]
-    E --> F["Stage C: Pair by case_id<br/>(regression/compare.py)"]
-    F --> G["Stage C: Statistics<br/>mean delta · bootstrap 95% CI ·<br/>median · effect size · Holm correction"]
-    G --> H["Stage C: Policy engine<br/>(policy/engine.py, worst-gate-wins)"]
-    H --> I{"GO / REVIEW /<br/>HOLD / INVALID"}
-    I --> J["Structured JSON report<br/>(reporting/, results/reports/*.json)"]
-    J -.future.-> K["Vercel / Next.js frontend<br/>(visualization only, §13)"]
-```
-
-- **Stage A (Generate)** — one immutable response per case, resumable by a
-  content-hashed run manifest.
-- **Stage B (Score)** — deterministic checks plus a blind LLM judge (never sees which
-  prompt version produced an answer).
-- **Stage C (Decide)** — pairs two runs by case ID, computes statistics (§6), evaluates
-  `config/policy.yaml`, and emits both the decision and a structured report (§9).
-
-## 11. Dataset
-
-120 development cases + 40 sealed holdout cases, from the
-[doc2dial](https://doc2dial.github.io/) dialogue corpus (v1.0.1):
-
-| Category | Purpose | Dev | Holdout |
-|---|---|---|---|
-| `grounded_qa` | Answer from context; graded for correctness + faithfulness | 60 | 20 |
-| `abstention` | Context genuinely lacks the answer; must decline, not guess | 15 | 5 |
-| `instruction_following` | Format constraints (word/sentence count, prefix, JSON) | 15 | 5 |
-| `guardrail` | Prompt injection, PII extraction, and benign near-miss cases | 30 | 10 |
-
-Split assignment is seeded (`seed=42`) and content-hashed (`data/manifest.json`) so it's
-reproducible without committing holdout *content* — `data/holdout/` is gitignored;
-only its count, seed, and integrity hashes are version-controlled.
-
-## 12. System under test
-
-Frozen throughout: generator `qwen.qwen3-next-80b-a3b-instruct`, judge
-`openai.gpt-oss-120b` (temperature 0, blind to run/prompt identity), an Amazon Bedrock
-Guardrail (native `ApplyGuardrail`, prompt-injection + PII policies).
-
-**Release policy** (`config/policy.yaml`): quality and safety metrics are **hard gates**
-(`answer_correctness`, `faithfulness`, `hallucination`, `prompt_injection_block_rate`,
-`sensitive_information_protection`, `benign_false_positive_rate`) that can produce HOLD.
-Cost and latency are **soft gates** (`p95_latency`, `cost_per_query`) that can only ever
-produce REVIEW — structurally impossible to HOLD, by construction, not convention. A
-comparison is **INVALID**, independent of any gate, if too many paired cases failed on
-either side to trust the result, or if the two runs share zero cases.
-
-## 13. Vercel / frontend preparation (not built yet)
-
-The reporting layer (§9) is intentionally shaped for a future Next.js/Vercel frontend to
-consume directly — `results.json` / `experiment.json` / `decision.json` /
-`statistics.json` / `safety.json`-style views over the same underlying data, rendering
-V1/V2/V3 comparisons, metric deltas with confidence intervals, guardrail results, cost
-and latency, the release decision and its reasons, and the experiment timeline. That
-frontend is a later phase and is **not implemented in this repository yet**. When built,
-it must read pre-generated, committed JSON (§9) — it must never call Bedrock live per
-visitor; the whole point of a public results site is that it costs nothing to view.
-
-## 14. Limitations
-
-- Holdout is 40 cases (20 `grounded_qa`) — enough for the correctness regression's CI to
-  exclude zero, not enough to rule out sampling variance on smaller sub-effects.
+- Holdout is 40 cases — enough for V3's original correctness regression to exclude
+  zero, but not enough to independently confirm V3.4's correctness improvement (its CI
+  straddles zero there, though directionally consistent with dev).
 - Single seed (42) for the dev/holdout split — not re-validated across multiple splits.
-- The judge is a single model at temperature 0; not cross-validated against a second
-  judge model.
-- Guardrail calibration only explored `PROMPT_ATTACK` strength; PII/sensitive-info
-  policy was never varied.
-- A metric's reported baseline value is specific to *the comparison it appears in*, not
-  a single global number for that run: pairing only includes a case when **both** sides
-  have a valid score, so the same run's mean can differ slightly across comparisons it
-  participates in (e.g. V2's dev answer-correctness mean is 73.37% paired against V1,
-  74.61% paired against V3 — one `grounded_qa` case in the V3 run has no recorded score
-  and is correctly excluded from the pairs that include it, rather than guessed).
-- Real thresholds in `config/policy.yaml` are evidence-based but not
-  stakeholder-risk-tolerance-approved production values — see the file's own comments.
+- The judge is a single model at temperature 0 — not cross-validated against a second
+  judge.
+- Guardrail calibration only explored `PROMPT_ATTACK` strength; PII policy was never
+  varied.
+- A metric's reported baseline can differ slightly across comparisons it appears in,
+  since pairing only includes a case when both sides of *that specific* comparison have
+  a valid score — never averaged into one synthetic number.
+- "GO" here means the candidate passed every configured release gate — a promotion
+  candidate backed by dev + holdout evidence, not a claim that it has been deployed to
+  production.
 
-## 15. Reproducibility
+## Tech Stack
 
-- **Prompt versioning**: SHA-256 content hash per prompt; an edited file without a
-  version bump is refused (`PromptContentDriftError`).
-- **Run manifests**: a run's identity is a content hash over its prompt, case set,
-  model params, and code — resumable by construction.
-- **Deterministic statistics**: bootstrap CI, median, effect size, and the p-value
-  feeding Holm correction all use a fixed seed.
-- **Holdout integrity without exposure**: `data/holdout/` is gitignored; only its count,
-  seed, and per-file SHA-256 hashes are committed in `data/manifest.json`.
-- **Everything regenerable from persisted data, no new AWS calls**: charts
-  (`scripts/generate_result_charts.py`), the V3-vs-V2 comparison
-  (`scripts/compute_v3_vs_v2.py`), and the JSON reports
-  (`scripts/generate_reports.py`) all recompute deterministically from
-  `artifacts/*.db`.
+**Backend:** Python 3.12, `uv`, `pytest`, `ruff`, `boto3` (AWS Bedrock Mantle + Bedrock
+Guardrail), SQLite, Pydantic.
 
-## 16. CI
+**Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS v4, hand-authored
+shadcn/ui-style components, Recharts, `next-themes` — reads `results/reports/*.json` at
+build/render time, no live model calls.
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request: lint
-(`ruff check` / `ruff format --check`), policy/config validation, statistical tests,
-reporting tests, and the full unit suite — all offline, against in-memory SQLite and
-`Fake*Client` stand-ins. It never calls Bedrock and never needs AWS credentials; the real
-evaluation scripts below are run manually, on demand.
-
-## 17. How to run
-
-**Public / no setup required** — clone and open `site/index.html`, or view the deployed
-static site (link at top). Pure results presentation, reads nothing live.
-
-**Local only (needs a real AWS account + Bedrock Mantle API key in `.env`):**
-
-```bash
-uv sync --all-extras          # installs deps, including the `charts` extra
-uv run pytest                 # 479 tests, fully offline (FakeClient/FakeGuardrailClient)
-uv run ruff check . && uv run ruff format --check .
-
-# Real, paid pipeline runs — require AWS credentials via the ambient CLI/SSO session
-# (never long-lived keys in .env) and a real Bedrock Mantle endpoint:
-uv run python scripts/run_dev_eval.py              # full 120-case dev eval, V1 vs V2
-uv run python scripts/run_v1_v3_dev_eval.py         # V1 vs V3, reuse-aware (cheap resume)
-uv run python scripts/compare_guardrail_versions.py --candidate-version 2
-uv run python scripts/run_holdout_eval.py           # the one sealed acceptance look
-
-# Recompute from data already persisted in artifacts/*.db — no new AWS calls:
-uv run python scripts/compute_v3_vs_v2.py
-uv run python scripts/generate_reports.py
-uv run python scripts/generate_result_charts.py
-```
-
-See `docs/ARCHITECTURE.md` for the full component-level design (database schema, error
-taxonomy, provider protocols, and the original design rationale).
+**CI:** GitHub Actions (`.github/workflows/ci.yml`) — lint, unit, statistical, and
+reporting tests on every push/PR, entirely offline.

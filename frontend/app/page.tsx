@@ -1,19 +1,20 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, ArrowDown } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { DecisionBadge } from "@/components/decision-badge";
-import { PROMPT_STORY, getHoldoutHeadline } from "@/data/experiments";
+import { PROMPT_STORY, getV34Headline, getFailedCandidates } from "@/data/experiments";
 import { DECISION_META } from "@/data/decisions";
-import { formatCI } from "@/data/metrics";
 import type { Decision } from "@/data/types";
 
 const STATES: Decision[] = ["GO", "REVIEW", "HOLD", "INVALID"];
 
 export default function HomePage() {
-  const headline = getHoldoutHeadline();
+  const headline = getV34Headline();
+  const failed = getFailedCandidates();
 
   return (
     <div className="flex flex-col gap-10">
@@ -26,13 +27,11 @@ export default function HomePage() {
           Can We Safely Ship a Better LLM?
         </h1>
         <p className="max-w-2xl text-ink-muted">
-          <strong className="text-ink">The business problem:</strong> an enterprise
-          customer-support AI team needs to know whether a new prompt version is safe and
-          genuinely better before releasing it to customers — not by eyeballing a handful of
-          outputs, but with paired statistical evidence and an auditable decision.
+          <strong className="text-ink">The business problem:</strong> before deploying a new
+          prompt, can we prove it&apos;s safe, useful, operationally acceptable, and worth
+          shipping — with evidence, not a single benchmark score?
         </p>
 
-        {/* The four supported release states — always visible, never buried */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           {STATES.map((s) => (
             <div
@@ -48,7 +47,7 @@ export default function HomePage() {
         <div className="flex flex-wrap gap-3 pt-1">
           <Button asChild>
             <Link href="/release-gate">
-              See the release decisions <ArrowRight />
+              See the release gate <ArrowRight />
             </Link>
           </Button>
           <Button asChild variant="outline">
@@ -59,125 +58,205 @@ export default function HomePage() {
 
       <Separator />
 
-      {/* Three prompt versions */}
+      {/* The real release journey */}
       <section className="flex flex-col gap-5">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">The three-prompt story</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">The real release journey</h2>
           <p className="mt-1 text-ink-muted">
-            V1 is the production baseline. V2 and V3 are candidates, each evaluated against V1 by
-            the same automated pipeline.
+            Six real candidates, each decided by the same automated policy engine. The gate
+            actually rejected or reviewed five of them before one passed.
           </p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {PROMPT_STORY.map((p) => (
-            <Card key={p.version}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{p.title}</CardTitle>
-                  {p.decision && <DecisionBadge decision={p.decision} />}
-                </div>
-                <CardDescription>{p.role}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-ink-muted">{p.summary}</p>
-              </CardContent>
-            </Card>
+        <div className="flex flex-col items-stretch gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+          {PROMPT_STORY.map((p, i) => (
+            <div key={p.version} className="flex items-center gap-2">
+              <div className="flex min-w-[7rem] flex-col items-center gap-1.5 rounded-lg border border-rule bg-surface px-3 py-2 text-center">
+                <span className="font-mono text-sm font-semibold">{p.title.split(" ")[0]}</span>
+                {p.decision ? (
+                  <DecisionBadge decision={p.decision} />
+                ) : (
+                  <span className="text-xs text-ink-faint">Production baseline</span>
+                )}
+              </div>
+              {i < PROMPT_STORY.length - 1 && (
+                <ArrowRight className="hidden size-4 shrink-0 text-ink-faint sm:block" />
+              )}
+              {i < PROMPT_STORY.length - 1 && (
+                <ArrowDown className="size-4 shrink-0 text-ink-faint sm:hidden" />
+              )}
+            </div>
           ))}
         </div>
       </section>
 
       <Separator />
 
-      {/* Headline holdout finding */}
+      {/* V3.4 headline card — the real GO */}
       <section className="flex flex-col gap-5">
-        <div>
+        <div className="flex flex-wrap items-center gap-3">
           <h2 className="text-2xl font-semibold tracking-tight">
-            The headline finding: a caught regression
+            V3.4 — First Candidate to Pass the Release Gate
           </h2>
-          <p className="mt-1 text-ink-muted">
-            V3 looked like an improvement in development. The sealed 40-case holdout split told a
-            different story.
-          </p>
+          <Badge variant="real">REAL DATA</Badge>
         </div>
-        <Card className="border-hold-rule bg-hold-bg/40">
-          <CardContent className="grid gap-6 pt-6 sm:grid-cols-3">
-            <div>
+        <Card className="border-go-rule bg-go-bg/40">
+          <CardContent className="grid gap-6 pt-6 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
               <p className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-                Correctness delta (V3 vs V1, holdout)
+                Dev — 120 cases
               </p>
-              <p className="mt-1 font-mono text-3xl font-semibold text-hold">
-                {headline.correctnessDeltaPp.toFixed(2)} pp
-              </p>
-              <p className="mt-1 text-sm text-ink-muted">
-                95% CI: {formatCI(headline.ci)} — excludes zero
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-                Automated policy decision
-              </p>
-              <div className="mt-2">
-                <DecisionBadge decision={headline.automatedDecision} />
+              <div className="flex items-center gap-2">
+                <DecisionBadge decision={headline.dev.decision} />
+                <span className="font-mono text-sm text-ink-muted">
+                  cost {headline.devCostPct >= 0 ? "+" : ""}
+                  {headline.devCostPct.toFixed(2)}%
+                </span>
               </div>
-              <p className="mt-2 text-sm text-ink-muted">
-                A confirmed regression that crosses the review threshold, not the harsher hold
-                threshold — REVIEW is the evidence-matched decision here.
-              </p>
             </div>
-            <div>
+            <div className="flex flex-col gap-1">
               <p className="text-xs font-medium tracking-wide text-ink-faint uppercase">
-                Human decision
+                Sealed holdout — 40 cases
               </p>
-              <p className="mt-2 font-mono text-lg font-semibold text-ink">
-                {headline.humanDecision}
-              </p>
-              <p className="mt-2 text-sm text-ink-muted">{headline.humanDecisionNote}</p>
+              <div className="flex items-center gap-2">
+                <DecisionBadge decision={headline.holdout.decision} />
+                <span className="font-mono text-sm text-ink-muted">
+                  cost {headline.holdoutCostPct >= 0 ? "+" : ""}
+                  {headline.holdoutCostPct.toFixed(2)}%
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Quality (dev)</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm text-ink-muted">
+              <p>
+                Correctness{" "}
+                <span className="font-mono text-ink">
+                  +{headline.devCorrectnessDeltaPp.toFixed(2)} pp
+                </span>
+              </p>
+              <p>
+                Faithfulness{" "}
+                <span className="font-mono text-ink">
+                  +{headline.devFaithfulnessDeltaPp.toFixed(2)} pp
+                </span>
+              </p>
+              <p>
+                Hallucination{" "}
+                <span className="font-mono text-ink">
+                  {headline.devHallucinationPct.toFixed(2)}%
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Safety</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm text-ink-muted">
+              <p>
+                Injection blocking{" "}
+                <span className="font-mono text-ink">
+                  {headline.devPromptInjectionBlockRate.toFixed(0)}%
+                </span>
+              </p>
+              <p>
+                Sensitive-info protection{" "}
+                <span className="font-mono text-ink">
+                  {headline.devSensitiveInfoProtection.toFixed(0)}%
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Performance</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-1 text-sm text-ink-muted">
+              <p>
+                p95 latency vs V1 (dev){" "}
+                <span className="font-mono text-go">
+                  {headline.devP95DeltaPct.toFixed(1)}%
+                </span>
+              </p>
+            </CardContent>
+          </Card>
+        </div>
         <p className="text-sm text-ink-faint">
-          The automated decision and the human decision are shown separately on purpose — the
-          policy engine surfaces evidence and a REVIEW state, it does not itself decide to keep a
-          candidate out of production.
+          &ldquo;GO&rdquo; here means <strong>passed the release gate</strong> — a promotion
+          candidate with statistically-grounded evidence behind it, not a claim that this has
+          been deployed to production.
         </p>
       </section>
 
       <Separator />
 
-      {/* Safety proof point — a third, independent axis (not quality) this
-          system decides on */}
-      <section className="flex flex-col gap-4">
-        <h2 className="text-2xl font-semibold tracking-tight">Safety is evaluated too</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Card>
-            <CardContent className="pt-6">
-              <p className="font-mono text-2xl font-semibold text-go">100%</p>
-              <p className="mt-1 text-sm text-ink-muted">Prompt injection blocked (tested)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="font-mono text-2xl font-semibold text-go">100%</p>
-              <p className="mt-1 text-sm text-ink-muted">Sensitive information protected (tested)</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <p className="font-mono text-2xl font-semibold text-ink">
-                55.56% <span className="text-ink-faint">→</span> 11.11%
-              </p>
-              <p className="mt-1 text-sm text-ink-muted">
-                Benign false positives, guardrail v1 → v2
-              </p>
-            </CardContent>
-          </Card>
+      {/* Failed / reviewed candidates */}
+      <section className="flex flex-col gap-5">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Candidates the gate rejected</h2>
+          <p className="mt-1 text-ink-muted">
+            V3.4 wasn&apos;t the first attempt — it&apos;s the fifth. The gate reviewed or held
+            back every one of the others.
+          </p>
         </div>
-        <Link
-          href="/safety"
-          className="text-sm font-medium text-accent underline underline-offset-2"
-        >
-          See the full guardrail calibration →
-        </Link>
+        <div className="flex flex-col gap-2">
+          {failed.map((c) => (
+            <div
+              key={c.version}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-rule bg-surface px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-14 font-mono text-sm font-semibold">{c.version}</span>
+                <DecisionBadge decision={c.decision} />
+              </div>
+              <p className="text-sm text-ink-muted">
+                {c.reasons.join("; ")}
+                {c.costPct !== undefined && (
+                  <span className="font-mono"> ({c.costPct >= 0 ? "+" : ""}{c.costPct.toFixed(2)}% cost)</span>
+                )}
+              </p>
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-go-rule bg-go-bg/40 px-4 py-3">
+            <div className="flex items-center gap-3">
+              <span className="w-14 font-mono text-sm font-semibold">V3.4</span>
+              <DecisionBadge decision="GO" />
+            </div>
+            <p className="font-mono text-sm text-ink-muted">
+              +{headline.devCostPct.toFixed(2)}% dev / +{headline.holdoutCostPct.toFixed(2)}%
+              holdout
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Dev -> Holdout */}
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl font-semibold tracking-tight">Dev → sealed holdout</h2>
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-rule bg-surface-muted p-6 text-center">
+          <p className="font-medium">Development evaluation — 120 cases</p>
+          <ArrowDown className="size-4 text-ink-faint" />
+          <DecisionBadge decision="GO" />
+          <ArrowDown className="size-4 text-ink-faint" />
+          <p className="font-medium">Sealed holdout — 40 cases</p>
+          <ArrowDown className="size-4 text-ink-faint" />
+          <DecisionBadge decision="GO" />
+          <ArrowDown className="size-4 text-ink-faint" />
+          <p className="font-medium">Promotion evidence</p>
+        </div>
+        <p className="max-w-2xl text-sm text-ink-muted">
+          The candidate was not promoted solely because it passed development evaluation. The
+          same prompt was evaluated on a sealed holdout set — cases it had never been run
+          against before — using the identical, unmodified release policy.
+        </p>
       </section>
     </div>
   );

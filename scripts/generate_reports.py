@@ -51,13 +51,15 @@ def main() -> int:
 
     dev_conn = get_connection(DEV_DB)
     # comparison ids from db/store.py's UNIQUE(baseline_run_id, candidate_run_id):
-    # 1 = V1 vs V2, 2 = V1 vs V3, 5 = V2 vs V3 (scripts/compute_v3_vs_v2.py, Phase 1).
-    for cid in (1, 2, 5):
+    # 1=V1vV2, 2=V1vV3, 3=V1vV3.1, 4=V1vV3.2, 5=V2vV3 (Phase 1),
+    # 6=V1vV3.3, 7=V1vV3.4 (the real GO).
+    for cid in (1, 2, 3, 4, 5, 6, 7):
         _report_one(dev_conn, cid, dataset="dev", policy=policy)
 
     holdout_conn = get_connection(HOLDOUT_DB)
-    holdout_row = holdout_conn.execute("SELECT id FROM comparisons").fetchone()
-    _report_one(holdout_conn, holdout_row["id"], dataset="holdout", policy=policy)
+    # 1=V1vV3 (the original headline REVIEW), 2=V1vV3.4 (the real holdout GO).
+    for cid in (1, 2):
+        _report_one(holdout_conn, cid, dataset="holdout", policy=policy)
 
     return 0
 

@@ -7,8 +7,13 @@ import { getAllReports } from "@/data/reports";
 const COMPARISON_LABELS: Record<string, string> = {
   v1_vs_v2_dev: "V2 vs V1 (dev)",
   v1_vs_v3_dev: "V3 vs V1 (dev)",
+  "v1_vs_v3.1_dev": "V3.1 vs V1 (dev)",
+  "v1_vs_v3.2_dev": "V3.2 vs V1 (dev)",
   v2_vs_v3_dev: "V3 vs V2 (dev)",
+  "v1_vs_v3.3_dev": "V3.3 vs V1 (dev)",
+  "v1_vs_v3.4_dev": "V3.4 vs V1 (dev)",
   v1_vs_v3_holdout: "V3 vs V1 (holdout, sealed)",
+  "v1_vs_v3.4_holdout": "V3.4 vs V1 (holdout, sealed)",
 };
 
 export default function StatisticsPage() {
@@ -47,7 +52,7 @@ export default function StatisticsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Answer correctness — paired delta with 95% CI, all four comparisons</CardTitle>
+          <CardTitle>Answer correctness — paired delta with 95% CI, every comparison</CardTitle>
           <CardDescription>
             A bar whose interval crosses zero is statistically indistinguishable from no change.
           </CardDescription>
@@ -115,6 +120,64 @@ export default function StatisticsPage() {
         </CardContent>
       </Card>
 
+      <Card className="border-go-rule bg-go-bg/40">
+        <CardHeader>
+          <CardTitle>V3.4: statistical honesty, Dev vs. Holdout</CardTitle>
+          <CardDescription>Answer correctness, the metric that broke V3</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm text-ink-muted">
+          <p>
+            Dev (n=120): delta{" "}
+            <span className="font-mono text-ink">
+              +{(reports["v1_vs_v3.4_dev"].delta.answer_correctness * 100).toFixed(2)} pp
+            </span>
+            , 95% CI{" "}
+            <span className="font-mono text-ink">
+              [+{(reports["v1_vs_v3.4_dev"].confidence_interval.answer_correctness![0] * 100).toFixed(1)},{" "}
+              +{(reports["v1_vs_v3.4_dev"].confidence_interval.answer_correctness![1] * 100).toFixed(1)}]
+            </span>{" "}
+            — excludes zero, a confirmed effect.
+          </p>
+          <p>
+            Holdout (n=40): delta{" "}
+            <span className="font-mono text-ink">
+              +{(reports["v1_vs_v3.4_holdout"].delta.answer_correctness * 100).toFixed(2)} pp
+            </span>
+            , 95% CI{" "}
+            <span className="font-mono text-ink">
+              [{(reports["v1_vs_v3.4_holdout"].confidence_interval.answer_correctness![0] * 100).toFixed(1)},{" "}
+              +{(reports["v1_vs_v3.4_holdout"].confidence_interval.answer_correctness![1] * 100).toFixed(1)}]
+            </span>{" "}
+            — straddles zero. The correctness improvement is therefore{" "}
+            <strong className="text-ink">directionally consistent but NOT independently
+            statistically confirmed</strong> on the smaller holdout sample.
+          </p>
+          <p>
+            Faithfulness: dev CI{" "}
+            <span className="font-mono text-ink">
+              [{(reports["v1_vs_v3.4_dev"].confidence_interval.faithfulness![0] * 100).toFixed(1)},{" "}
+              +{(reports["v1_vs_v3.4_dev"].confidence_interval.faithfulness![1] * 100).toFixed(1)}] pp
+            </span>
+            , holdout CI{" "}
+            <span className="font-mono text-ink">
+              [{(reports["v1_vs_v3.4_holdout"].confidence_interval.faithfulness![0] * 100).toFixed(1)},{" "}
+              +{(reports["v1_vs_v3.4_holdout"].confidence_interval.faithfulness![1] * 100).toFixed(1)}] pp
+            </span>{" "}
+            — both straddle zero. Abstention accuracy survives Holm-Bonferroni correction on both
+            splits. Cost survives Holm correction on dev but not on the smaller holdout sample.{" "}
+            <span className="text-ink-faint">
+              (Holm significance is verified directly against the persisted comparison&apos;s
+              MetricDelta.holm_significant field — not itself part of the ExperimentReport JSON
+              schema, same as the guardrail v1/v2 figures on the Safety page.)
+            </span>
+          </p>
+          <p className="font-medium text-ink">
+            V3.4&apos;s quality improvements were directionally consistent across Dev and
+            Holdout. The release decision itself replicated: GO on both datasets.
+          </p>
+        </CardContent>
+      </Card>
+
       <Card className="border-dashed border-accent bg-surface-muted">
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
@@ -126,13 +189,14 @@ export default function StatisticsPage() {
           <p>
             Every number on this page comes from{" "}
             <code className="font-mono text-xs">results/reports/*.json</code> — real,
-            already-computed comparisons over actual generator/judge/guardrail responses. As of
-            this writing, no real comparison has ever produced GO (see the{" "}
+            already-computed comparisons over actual generator/judge/guardrail responses.
+            V2 through V3.3 were each HELD or REVIEWed for a real reason; V3.4 is the first
+            candidate to pass all 8 gates, on both dev and the sealed holdout (see{" "}
             <a href="/release-gate" className="underline underline-offset-2">
               Release Gate
-            </a>{" "}
-            page for why, and for the clearly-labeled synthetic fixture that proves GO is
-            reachable). No historical decision shown here was recomputed or reinterpreted to
+            </a>
+            ). The synthetic GO fixture on that page predates V3.4&apos;s real result and played
+            no part in it. No historical decision shown here was recomputed or reinterpreted to
             produce a different answer.
           </p>
         </CardContent>
