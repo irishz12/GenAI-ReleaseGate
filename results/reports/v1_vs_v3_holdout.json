@@ -221,5 +221,17 @@
     "answer_correctness: delta -0.0753 crossed the review threshold +0.0000",
     "cost_per_query: delta +27.83% crossed the review threshold +15.00%"
   ],
-  "timestamp": "2026-08-30T10:05:36.568687Z"
+  "timestamp": "2026-08-30T10:05:36.568687Z",
+  "baseline_cost_breakdown": {
+    "generator_cost": null,
+    "guardrail_cost": 0.013000000000000001,
+    "judge_cost": 0.01105033,
+    "total_evaluation_cost": null
+  },
+  "candidate_cost_breakdown": {
+    "generator_cost": null,
+    "guardrail_cost": 0.013000000000000001,
+    "judge_cost": 0.01189045,
+    "total_evaluation_cost": null
+  }
 }

@@ -33,6 +33,7 @@ def _report_one(conn, comparison_id: int, dataset: str, policy) -> str:
     experiment_id = f"{baseline_prompt.version}_vs_{candidate_prompt.version}_{dataset}"
 
     report = build_experiment_report(
+        conn,
         comparison,
         policy,
         experiment_id=experiment_id,

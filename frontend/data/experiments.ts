@@ -165,6 +165,28 @@ export function getFailedCandidates() {
   ];
 }
 
+/** Cost delta (%) vs. release decision for every real candidate, V2 through V3.4 —
+ * the cost/quality-tradeoff visualization: every candidate is plotted, whether or
+ * not cost was the reason it was reviewed/held, so the chart shows the real trend
+ * (cost overrun shrinking release after release) rather than only the cases where
+ * cost happened to be the triggering gate. V2's cost delta is real (from
+ * v1_vs_v2_dev) even though its HOLD was driven by faithfulness/safety, not cost. */
+export function getCostVsDecisionData() {
+  const reports: Array<[string, ReturnType<typeof getReport>]> = [
+    ["V2", getReport("v1_vs_v2_dev")],
+    ["V3", getReport("v1_vs_v3_dev")],
+    ["V3.1", getReport("v1_vs_v3.1_dev")],
+    ["V3.2", getReport("v1_vs_v3.2_dev")],
+    ["V3.3", getReport("v1_vs_v3.3_dev")],
+    ["V3.4", getReport("v1_vs_v3.4_dev")],
+  ];
+  return reports.map(([version, r]) => ({
+    version,
+    decision: r.decision,
+    costPct: pctChange(r.delta.cost_per_query, r.baseline_values.cost_per_query),
+  }));
+}
+
 /** The headline holdout finding for V3 (the original, still-real REVIEW
  * story) — the one result this project surfaced before V3.4 existed. Every
  * number here is read directly from the real, sealed-holdout comparison;

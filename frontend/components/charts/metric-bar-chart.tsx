@@ -28,6 +28,11 @@ function formatValue(kind: FormatKind, v: number): string {
   switch (kind) {
     case "pct":
       return `${(v * 100).toFixed(2)}%`;
+    case "pct-signed":
+      // v is already a percentage (e.g. 25.79, not 0.2579) — used for
+      // pre-computed percentage-point deltas like cost_per_query's % change,
+      // where the sign itself is meaningful (a cost increase vs. decrease).
+      return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
     case "ms":
       return `${v.toFixed(0)} ms`;
     case "usd":

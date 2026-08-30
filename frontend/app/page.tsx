@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { DecisionBadge } from "@/components/decision-badge";
-import { PROMPT_STORY, getV34Headline, getFailedCandidates } from "@/data/experiments";
+import { MetricBarChart } from "@/components/charts/metric-bar-chart";
+import {
+  PROMPT_STORY,
+  getV34Headline,
+  getFailedCandidates,
+  getCostVsDecisionData,
+} from "@/data/experiments";
 import { DECISION_META } from "@/data/decisions";
 import type { Decision } from "@/data/types";
 
@@ -15,6 +21,7 @@ const STATES: Decision[] = ["GO", "REVIEW", "HOLD", "INVALID"];
 export default function HomePage() {
   const headline = getV34Headline();
   const failed = getFailedCandidates();
+  const costVsDecision = getCostVsDecisionData();
 
   return (
     <div className="flex flex-col gap-10">
@@ -236,6 +243,33 @@ export default function HomePage() {
             </p>
           </div>
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Cost delta vs. release decision (dev)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <MetricBarChart
+              data={costVsDecision.map((c) => ({
+                label: c.version,
+                value: c.costPct,
+                fill:
+                  c.decision === "GO"
+                    ? "var(--go)"
+                    : c.decision === "HOLD"
+                      ? "var(--hold)"
+                      : "var(--review)",
+              }))}
+              formatKind="pct-signed"
+              height={220}
+            />
+          </CardContent>
+        </Card>
+        <p className="text-sm text-ink-faint">
+          The release gate did not simply reward the highest benchmark score — it rejected five
+          candidates until one satisfied the complete release policy. V2&apos;s cost delta is
+          shown for completeness; its HOLD was driven by faithfulness and safety, not cost.
+        </p>
       </section>
 
       <Separator />

@@ -5,7 +5,7 @@
 
 export type MetricDirection = "higher_is_better" | "lower_is_better";
 
-export type FormatKind = "pct" | "ms" | "usd";
+export type FormatKind = "pct" | "pct-signed" | "ms" | "usd";
 
 export interface MetricMeta {
   key: string;

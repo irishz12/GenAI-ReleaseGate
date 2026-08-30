@@ -220,5 +220,17 @@
   "decision_reasons": [
     "cost_per_query: delta +37.60% crossed the review threshold +15.00%"
   ],
-  "timestamp": "2026-08-30T11:12:17.699076Z"
+  "timestamp": "2026-08-30T11:12:17.699076Z",
+  "baseline_cost_breakdown": {
+    "generator_cost": null,
+    "guardrail_cost": 0.0387,
+    "judge_cost": 0.030145170000000002,
+    "total_evaluation_cost": null
+  },
+  "candidate_cost_breakdown": {
+    "generator_cost": null,
+    "guardrail_cost": 0.0393,
+    "judge_cost": 0.03295086,
+    "total_evaluation_cost": null
+  }
 }

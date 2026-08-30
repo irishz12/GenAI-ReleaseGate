@@ -1,11 +1,69 @@
 # GenAI Prompt Evaluation & Guardrails Platform — Architecture (V1)
 
-**Status:** Design (no implementation) — simplified scope
-**Date:** 2026-08-29
+**Status of everything below §0:** this is the **original Phase 0 design document**,
+written 2026-08-29 before implementation began. It is kept, unedited apart from a few
+explicit corrections marked inline, as a historical record of the original design
+reasoning — not a description of the current system. **For what's actually built and
+running today, see §0 immediately below.**
 
 > This revision trims the original design down to what a first working version actually needs.
 > Statistical and calibration machinery that doesn't pay for itself at this dataset size has been
 > moved to **§14 Future Extensions** rather than built now.
+
+---
+
+## 0. Current Implemented Architecture
+
+This section describes the system as it actually exists today — not the plan in §1
+onward. Every stage below is real, built, and exercised by the real V1→V3.4 experiment
+history in this repository.
+
+```
+Prompt / Dataset   (prompts/*.md, data/dev+holdout/*.jsonl, content-hashed)
+        │
+        ▼
+Generation          (real Bedrock Mantle call — src/evalguard/providers/bedrock_mantle.py)
+        │
+        ▼
+Guardrails           (real Bedrock ApplyGuardrail, input + output — providers/bedrock_guardrail.py)
+        │
+        ▼
+Quality/Safety Evaluation   (deterministic checks + blind LLM judge — quality/, guardrails/)
+        │
+        ▼
+Statistical Comparison   (paired by case_id, mean/median delta, bootstrap CI, effect
+                          size, Holm correction — regression/compare.py, regression/statistics.py)
+        │
+        ▼
+Release Policy       (declarative gates, worst-gate-wins — policy/engine.py + config/policy.yaml)
+        │
+        ▼
+Structured Reports    (Pydantic → JSON — reporting/ → results/reports/*.json)
+        │
+        ▼
+Next.js Dashboard     (frontend/ — reads the JSON above at build time)
+```
+
+**Explicitly:**
+
+- The dashboard is a **presentation layer**. It reads already-persisted, structured
+  results (`results/reports/*.json`) via `frontend/data/reports.ts` at build/render
+  time.
+- It does **not** make live model, judge, or guardrail calls of any kind, and does not
+  invoke the evaluation pipeline.
+- It does **not** make release decisions independently — it only renders the
+  `decision` and `gate_results` fields that are already present in the JSON it reads.
+- **`src/evalguard/policy/engine.py`, evaluated against `config/policy.yaml`, is the
+  sole source of every GO/REVIEW/HOLD/INVALID decision** in this project. Nothing in
+  the frontend, and nothing in this document, overrides or recomputes that.
+- This describes the **evaluation pipeline and its presentation layer** — it is not a
+  claim that the candidate LLM prompt itself has been deployed to production. "GO"
+  means a candidate passed the release gate on real dev + holdout evidence; see
+  README.md's Limitations section for the exact distinction.
+
+The read-only FastAPI layer sketched in the original design (§14/§15 below) was never
+built — once the dashboard read JSON directly, it became unnecessary, not merely
+deferred.
 
 ---
 

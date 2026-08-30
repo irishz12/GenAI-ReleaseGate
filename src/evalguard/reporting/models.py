@@ -17,6 +17,31 @@ from pydantic import BaseModel, ConfigDict, Field
 from evalguard.models import GateResult
 
 
+class CostBreakdown(BaseModel):
+    """One run's real cost, split by which independently-billed service incurred
+    it. `cost_per_query` (the release-gate metric in `delta`/`baseline_values`/
+    `candidate_values` above) is generator cost only, unchanged by this model's
+    existence — this is purely additional visibility into the other two real costs
+    (guardrail, judge) that were always tracked in the database but never exposed
+    through the reporting layer.
+
+    Each field is `None` — never a fabricated 0.0 — when that service has no priced
+    data for this run (e.g. a DETERMINISTIC-method guardrail check has no cost_usd
+    at all), mirroring `compute_cost_per_query`'s existing "unverified, not zero"
+    convention. `total_evaluation_cost` is itself `None` unless all three components
+    are present — the same "never a silently-partial aggregate" discipline, so a
+    reader never mistakes a partial sum (e.g. guardrail + judge, generator missing)
+    for the genuine total.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    generator_cost: float | None
+    guardrail_cost: float | None
+    judge_cost: float | None
+    total_evaluation_cost: float | None
+
+
 class ExperimentReport(BaseModel):
     """One baseline-vs-candidate comparison, reshaped for external consumption."""
 
@@ -43,3 +68,5 @@ class ExperimentReport(BaseModel):
     decision: str
     decision_reasons: list[str]
     timestamp: datetime
+    baseline_cost_breakdown: CostBreakdown
+    candidate_cost_breakdown: CostBreakdown
