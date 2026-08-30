@@ -1,0 +1,43 @@
+[project]
+name = "evalguard"
+version = "0.1.0"
+description = "GenAI Prompt Evaluation & Guardrails Platform"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "python-dotenv>=1.0",
+  "boto3>=1.34",
+  # botocore's "login" credential provider (the ambient `aws login` CLI/SSO session
+  # used for ap-south-1 ApplyGuardrail calls — see providers/bedrock_guardrail.py)
+  # requires this at runtime; boto3 raises MissingDependencyException without it.
+  "awscrt>=0.23",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+charts = [
+    "matplotlib>=3.11.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evalguard"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

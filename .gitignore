@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.Python
+build/
+dist/
+
+# uv
+uv.lock.bak
+
+# Env / secrets
+.env
+.env.local
+
+# Evaluation artifacts (generated, never committed)
+artifacts/
+
+# Raw source-corpus cache (large, re-downloadable — see scripts/build_doc2dial_dataset.py).
+.cache/
+
+# Final holdout: local-only, never committed. It stays reproducible without being
+# shipped — data/manifest.json commits its count, seed, corpus hash, and per-file
+# hashes, which is enough to regenerate it byte-identically (same seed + same cached
+# raw corpus) or to verify it against the manifest if it's present locally. What must
+# never be committed is the case *content* itself. data/dev/ is unaffected — it stays
+# tracked and usable.
+data/holdout/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Test / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
