@@ -118,7 +118,9 @@ def chart_cost_latency(dev_reports: dict[str, dict]) -> None:
     labels = ["V1"] + [v.upper() for v in DEV_VERSIONS]
     v1_baseline = dev_reports["v2"]["baseline_values"]
 
-    p95 = [v1_baseline["p95_latency"]] + [dev_reports[v]["candidate_values"]["p95_latency"] for v in DEV_VERSIONS]
+    p95 = [v1_baseline["p95_latency"]] + [
+        dev_reports[v]["candidate_values"]["p95_latency"] for v in DEV_VERSIONS
+    ]
     cost = [v1_baseline["cost_per_query"] * 1000] + [
         dev_reports[v]["candidate_values"]["cost_per_query"] * 1000 for v in DEV_VERSIONS
     ]
