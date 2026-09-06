@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>GenAI Evaluation Guardrails</title>
+<title>GenAI ReleaseGate</title>
 <meta name="description" content="An evaluation and release-gating harness for a customer-support LLM agent: paired statistical comparison, a real AWS guardrail, and a caught regression on holdout." />
 <style>
   :root {
@@ -103,14 +103,15 @@
 <div class="wrap">
 
   <header>
-    <h1>GenAI Evaluation Guardrails</h1>
+    <h1>GenAI ReleaseGate</h1>
     <p class="tagline">
       An evaluation and release-gating harness for a customer-support LLM agent:
       generation, blind LLM judging, a real AWS Bedrock Guardrail, paired statistical
       comparison, and an automated GO / REVIEW / HOLD / INVALID release decision.
     </p>
     <div class="top-links">
-      <a href="https://github.com/irishz12/GenAI-Evaluation-Guardrails">GitHub repository</a>
+      <a href="https://github.com/irishz12/GenAI-ReleaseGate">GitHub repository</a>
+      <a href="https://genai-releasegate.vercel.app">Interactive demo</a>
       <a href="#8-headline">The headline result</a>
       <a href="#14-how-to-run">How to run</a>
     </div>
@@ -220,9 +221,12 @@
     <p>
       Frozen throughout: generator <code>qwen.qwen3-next-80b-a3b-instruct</code>, judge
       <code>openai.gpt-oss-120b</code> (temperature 0, blind), an Amazon Bedrock
-      Guardrail (native <code>ApplyGuardrail</code>). Three prompt versions were
-      evaluated — V1 (production baseline), V2 (fixed under-abstention, regressed
-      faithfulness), V3 (root-caused and fixed the regression).
+      Guardrail (native <code>ApplyGuardrail</code>). Six real candidates were
+      evaluated against production baseline V1 — V2 (fixed under-abstention, regressed
+      faithfulness), V3 (root-caused and fixed the regression, but raised cost), V3.1
+      and V3.2 (cost fixes that reintroduced the faithfulness regression), V3.3 (closer,
+      still over the cost threshold), and V3.4 (the version ultimately promoted — see
+      §7 and §10).
     </p>
   </section>
 
@@ -239,17 +243,21 @@
   </section>
 
   <section id="7-dev-results">
-    <h2><span class="num">7.</span> Dev results: V1 → V2 → V3</h2>
+    <h2><span class="num">7.</span> Dev results: V1 → V3.4</h2>
     <div class="chart">
-      <img src="charts/quality_progression_dev.png" alt="Quality progression V1 to V2 to V3 on 120 dev cases" />
+      <img src="charts/quality_progression_dev.png" alt="Quality progression V1 through V3.4 on 120 dev cases" />
     </div>
     <table>
-      <tr><th>Metric</th><th>V1</th><th>V2</th><th>V3</th></tr>
-      <tr><td>Answer correctness</td><td>73.15%</td><td>73.37%</td><td>76.71%</td></tr>
-      <tr><td>Faithfulness</td><td>82.99%</td><td class="bad">72.22%</td><td>86.07%</td></tr>
+      <tr><th>Metric</th><th>V1</th><th>V3</th><th>V3.4 (promoted)</th></tr>
+      <tr><td>Answer correctness</td><td>74.39%</td><td>76.71%</td><td class="good">82.37%</td></tr>
+      <tr><td>Faithfulness</td><td>84.40%</td><td>86.07%</td><td class="good">88.93%</td></tr>
       <tr><td>Abstention accuracy</td><td>6.67%</td><td class="good">93.33%</td><td class="good">93.33%</td></tr>
-      <tr><td>Hallucination</td><td>5.00%</td><td>1.67%</td><td>1.69%</td></tr>
+      <tr><td>Hallucination</td><td>5.08%</td><td>1.69%</td><td class="good">1.69%</td></tr>
     </table>
+    <p class="muted">
+      V3 through V3.4 all share the faithfulness/abstention fix from V3 — the chart
+      above shows every intermediate version; V3.4 is the one actually promoted (§10).
+    </p>
   </section>
 
   <section id="8-headline">
@@ -269,9 +277,13 @@
       already flagged (but only partially fixed) during dev testing, concentrated
       harder in this particular holdout sample.
     </p>
-    <p><strong>V1 remains in production. V3 is not promoted.</strong> The finding
-      itself is the deliverable — the harness did exactly what a dev/holdout split
-      exists to do.</p>
+    <p><strong>V3 was not promoted.</strong> The finding itself was already the
+      deliverable — the harness did exactly what a dev/holdout split exists to do. Three
+      further iterations (V3.1–V3.3) chased V3's separate cost problem without
+      reintroducing this regression, and finally <strong>V3.4 passed the same holdout
+      methodology cleanly</strong>: answer correctness +10.11pp on the sealed holdout,
+      95% CI excluding zero on the correct side this time. V3.4 is the current release
+      candidate — see §10 for the cost story in between.</p>
   </section>
 
   <section id="9-guardrail">
@@ -296,7 +308,14 @@
     </div>
     <p class="muted">
       Tracked separately per service throughout. V3's more detailed refusals increased
-      cost per query ~26% — flagged as a soft review, not a blocker.
+      cost per query +25.79% on dev — flagged as a soft review, not a blocker, but high
+      enough to chase down. V3.1 and V3.2 tried a rigid sentence cap (+17.02%, +22.54%)
+      and both reintroduced the faithfulness regression a hard length limit causes. V3.3
+      swapped in a qualitative anti-preamble instruction instead (+16.30% — still missed
+      the 15% threshold by 1.3pp). V3.4's fix came from actually measuring where the
+      cost was: input tokens (the instruction text sent on every call), not output
+      length. Trimming that got dev to +12.17% and holdout to +10.81% — both under the
+      line.
     </p>
   </section>
 
@@ -311,7 +330,14 @@
         missing scored as a supported, checkable claim.</li>
     </ul>
     <p>V3's fix targeted both with two minimal rule changes. Root cause #1 was only
-      partially fixed (see §8); root cause #2 was fully resolved.</p>
+      partially fixed (see §8, resolved by V3.4); root cause #2 was fully resolved.</p>
+    <p><strong>A third root cause, found later:</strong> V3's more detailed, specific
+      refusals cost more per call. V3.1/V3.2 misdiagnosed this as an output-length
+      problem and capped sentence count — which cut cost some but broke faithfulness
+      again, since the judge rewards exactly the specific-restatement content a hard cap
+      truncates. V3.3's qualitative instruction avoided that trade-off but still missed
+      the cost threshold. V3.4 found the real cause — input-token bloat from the
+      instruction text itself — and fixed that instead of the response.</p>
   </section>
 
   <section id="12-limitations">
@@ -338,7 +364,9 @@
       <li>Holdout integrity is verifiable without exposure: only count, seed, and
         per-file hashes are committed.</li>
       <li>Every chart on this page is regenerated deterministically by
-        <code>scripts/generate_result_charts.py</code> from the persisted comparison data.</li>
+        <code>scripts/generate_result_charts.py</code> from the committed
+        <code>results/reports/*.json</code> files — no local database required, so
+        anyone who has cloned this repo alone can reproduce them exactly.</li>
     </ul>
   </section>
 
@@ -347,7 +375,8 @@
     <p><strong>This page</strong> is a static results summary — no setup, nothing live.</p>
     <p><strong>Local only</strong> (needs a real AWS account + Bedrock Mantle API key in <code>.env</code>):</p>
     <pre><code>uv sync --all-extras
-uv run pytest                 # 439 tests, fully offline
+uv run pytest                 # 483 tests: 475 passing, 8 skipped (need a local
+                               # holdout DB that is intentionally never committed)
 uv run ruff check . && uv run ruff format --check .
 
 # Real, paid pipeline runs — require AWS credentials via the ambient CLI/SSO session:
@@ -361,7 +390,7 @@ uv run python scripts/generate_result_charts.py   # regenerate these charts</cod
   </section>
 
   <footer>
-    GenAI Evaluation Guardrails — Rishikesh K G
+    GenAI ReleaseGate — Rishikesh K G
   </footer>
 
 </div>
