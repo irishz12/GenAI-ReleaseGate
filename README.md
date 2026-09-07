@@ -93,9 +93,11 @@ override, no threshold changed to produce this result.**
 | Cost per query (generator inference only) | +12.17% | +10.81% |
 | p95 latency | −30.6% | −16.0% |
 
-All 8 real, persisted comparisons (V2 through V3.4, dev and holdout) are in
-[`results/reports/`](results/reports/) as structured JSON — nothing summarized here is
-hand-typed independently of that data.
+All 9 real, persisted comparisons are in [`results/reports/`](results/reports/) as
+structured JSON — nothing summarized here is hand-typed independently of that data. 8
+compare each candidate (V2 through V3.4, dev and holdout) against the V1 production
+baseline; the 9th (`v2_vs_v3_dev.json`) compares V3 directly against V2 in isolation —
+see Failure Analysis below for what that one is for.
 
 **What "cost per query" measures:** `cost_per_query` — the metric the release gate
 reads — is the generator's (model inference) cost only. Judge and guardrail calls are
@@ -258,6 +260,18 @@ V3 fixed both with two targeted rule changes, but a residual over-refusal case r
 [−17.7, −1.2], decision REVIEW; a human reviewer declined to promote V3, so V1 stayed
 production).
 
+This fix was also verified in isolation via a direct V2-vs-V3 comparison
+(`results/reports/v2_vs_v3_dev.json` — the ninth report in this repo, not gated
+against V1): faithfulness improved +12.6pp specifically relative to V2's
+regressed baseline, confirming the two rule changes above actually resolved
+root cause #2 rather than some other V3 change coincidentally offsetting it.
+That direct comparison's own cost delta (+37.6%) reads far worse than the
++25.79% reported against V1 throughout the rest of this README — because V2
+itself was cheaper than V1, the same absolute cost increase looks
+proportionally larger against V2's lower baseline. This report is a
+diagnostic check, not a release gate: V1, not V2, is the actual production
+baseline this project ships against.
+
 Getting V3 under the cost gate took three more iterations: V3.1/V3.2's sentence caps
 cut cost but broke faithfulness again by truncating the same specificity that fixed
 root cause #2. V3.3's qualitative anti-preamble instruction avoided that failure mode
@@ -308,9 +322,13 @@ no client-side fetch, no live model call.
 - `data/holdout/` is gitignored; only its count, seed, and per-file SHA-256 hashes are
   committed (`data/manifest.json`) — enough to verify integrity without shipping
   sealed content.
-- Charts, comparisons, and JSON reports are all regenerable from `artifacts/*.db` with
-  no new AWS calls (`scripts/generate_result_charts.py`, `scripts/generate_reports.py`,
-  `scripts/recompute_comparisons_with_phase2_stats.py`).
+- `scripts/generate_result_charts.py` regenerates every chart from the already-committed
+  `results/reports/*.json` files alone — no local database required, reproducible from a
+  fresh clone of this repo with nothing else run first. `scripts/generate_reports.py` and
+  `scripts/recompute_comparisons_with_phase2_stats.py` do need a local `artifacts/*.db` —
+  legitimately local-only, since producing those JSON reports from raw per-case eval data
+  in the first place is their actual job, and that raw data is exactly what a real
+  evaluation run produces and this repo intentionally never commits.
 
 No secrets are required to reproduce anything above except the one-time real evaluation
 runs, which need `MANTLE_API_KEY`/`MANTLE_BASE_URL` (or `OPENAI_API_KEY`) in a local,
