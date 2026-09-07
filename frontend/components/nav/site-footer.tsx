@@ -10,7 +10,7 @@ export function SiteFooter() {
         </p>
         <p className="mt-2">
           <a
-            href="https://github.com/irishz12/GenAI-Evaluation-Guardrails"
+            href="https://github.com/irishz12/GenAI-ReleaseGate"
             className="underline underline-offset-2 hover:text-ink"
           >
             Source on GitHub
