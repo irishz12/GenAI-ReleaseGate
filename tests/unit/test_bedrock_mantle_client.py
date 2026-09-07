@@ -11,6 +11,7 @@ only the actual socket is swapped out.
 from __future__ import annotations
 
 import json
+import warnings
 
 import pytest
 
@@ -289,9 +290,21 @@ def test_mantle_config_falls_back_to_openai_api_key(monkeypatch) -> None:
     monkeypatch.delenv("MANTLE_API_KEY", raising=False)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fallback")
 
-    config = MantleConfig.from_env()
+    with pytest.warns(UserWarning, match="MANTLE_API_KEY not set"):
+        config = MantleConfig.from_env()
     assert config.api_key == "sk-test-fallback"
     assert config.base_url == "https://api.openai.com/v1"
+
+
+def test_mantle_config_fallback_warning_never_contains_the_key_value(monkeypatch) -> None:
+    monkeypatch.delenv("MANTLE_BASE_URL", raising=False)
+    monkeypatch.delenv("MANTLE_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-super-secret-value")
+
+    with pytest.warns(UserWarning) as record:
+        MantleConfig.from_env()
+    assert len(record) == 1
+    assert "sk-super-secret-value" not in str(record[0].message)
 
 
 def test_mantle_config_prefers_explicit_mantle_vars_over_openai_fallback(monkeypatch) -> None:
@@ -299,7 +312,9 @@ def test_mantle_config_prefers_explicit_mantle_vars_over_openai_fallback(monkeyp
     monkeypatch.setenv("MANTLE_API_KEY", "mantle-key")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-should-not-be-used")
 
-    config = MantleConfig.from_env()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        config = MantleConfig.from_env()  # must NOT warn when a real Mantle key is set
     assert config.api_key == "mantle-key"
     assert config.base_url == "https://mantle.internal/v1"
 

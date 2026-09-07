@@ -32,6 +32,7 @@ import random
 import time
 import urllib.error
 import urllib.request
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -81,6 +82,16 @@ class MantleConfig:
 
         if not api_key:
             api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+            if api_key:
+                warnings.warn(
+                    "MANTLE_API_KEY not set — falling back to OPENAI_API_KEY. This "
+                    "will make live, billed calls to the real OpenAI API, not Bedrock "
+                    "Mantle, and results/reports will be attributed to Mantle even "
+                    "though they came from OpenAI. Set MANTLE_API_KEY explicitly "
+                    "(see .env.example) to use Mantle, or to silence this warning "
+                    "if the OpenAI fallback is intentional for this run.",
+                    stacklevel=2,
+                )
             if not base_url:
                 base_url = _DEFAULT_OPENAI_BASE_URL
 
